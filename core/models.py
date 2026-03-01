@@ -116,6 +116,12 @@ class SecurityEvent(models.Model):
     source_port = models.IntegerField(null=True, blank=True)
     target_ip = models.GenericIPAddressField(null=True, blank=True)
     target_port = models.IntegerField(null=True, blank=True)
+
+    # Geolocalización (se rellena automáticamente al guardar)
+    source_country = models.CharField(max_length=100, null=True, blank=True)
+    source_city = models.CharField(max_length=100, null=True, blank=True)
+    source_lat = models.FloatField(null=True, blank=True)
+    source_lon = models.FloatField(null=True, blank=True)
     
     # Detalles
     title = models.CharField(max_length=200)

@@ -4,7 +4,10 @@ from django.utils import timezone
 from datetime import timedelta
 from core.models import SecurityEvent, SIEMLog, EDRAgent, WAFLog, SandboxAnalysis
 from django.db.models import Count, Q
+from django.http import JsonResponse
+from django.core.cache import cache
 import json
+import requests as http_requests
 
 @login_required
 def dashboard_view(request):
@@ -224,3 +227,104 @@ def get_plan_limits(plan):
         }
     }
     return limits.get(plan, limits['free'])
+
+
+def _geolocate_ips(ip_list):
+    """
+    Geolocate a list of IPs using ip-api.com batch endpoint.
+    Results are cached per IP for 24h to avoid rate limits.
+    Returns dict: {ip: {lat, lon, country, city}}
+    """
+    result = {}
+    to_query = []
+
+    for ip in ip_list:
+        if not ip or ip.startswith(('10.', '192.168.', '172.', '127.')):
+            continue  # skip private IPs
+        cached = cache.get(f'geo_{ip}')
+        if cached:
+            result[ip] = cached
+        else:
+            to_query.append(ip)
+
+    # Batch geolocate in chunks of 100 (ip-api limit)
+    for i in range(0, len(to_query), 100):
+        chunk = to_query[i:i+100]
+        try:
+            resp = http_requests.post(
+                'http://ip-api.com/batch',
+                json=[{'query': ip, 'fields': 'query,lat,lon,country,city,status'} for ip in chunk],
+                timeout=5
+            )
+            if resp.status_code == 200:
+                for item in resp.json():
+                    if item.get('status') == 'success':
+                        geo = {
+                            'lat': item['lat'],
+                            'lon': item['lon'],
+                            'country': item.get('country', ''),
+                            'city': item.get('city', ''),
+                        }
+                        result[item['query']] = geo
+                        cache.set(f'geo_{item["query"]}', geo, 86400)  # 24h
+        except Exception:
+            pass  # no romper el dashboard si ip-api falla
+
+    return result
+
+
+@login_required
+def threat_map_data(request):
+    """
+    API endpoint: devuelve los últimos eventos con geo para el mapa de amenazas.
+    GET /api/threat-map/
+    """
+    organization = request.user.profile.organization
+    last_24h = timezone.now() - timedelta(hours=24)
+
+    events = SecurityEvent.objects.filter(
+        organization=organization,
+        timestamp__gte=last_24h,
+        source_ip__isnull=False,
+    ).values('source_ip', 'severity', 'source_lat', 'source_lon',
+             'source_country', 'source_city').order_by('-timestamp')[:500]
+
+    # Collect IPs that still need geolocation
+    needs_geo = [e['source_ip'] for e in events if not e['source_lat']]
+    geo_map = _geolocate_ips(list(set(needs_geo)))
+
+    # Build response and update DB for cached results
+    points = {}
+    for ev in events:
+        ip = ev['source_ip']
+        lat = ev['source_lat']
+        lon = ev['source_lon']
+        country = ev['source_country'] or ''
+        city = ev['source_city'] or ''
+
+        if not lat and ip in geo_map:
+            lat = geo_map[ip]['lat']
+            lon = geo_map[ip]['lon']
+            country = geo_map[ip]['country']
+            city = geo_map[ip]['city']
+            # Persist geo to avoid future API calls
+            SecurityEvent.objects.filter(
+                source_ip=ip, source_lat__isnull=True, organization=organization
+            ).update(source_lat=lat, source_lon=lon,
+                     source_country=country, source_city=city)
+
+        if lat and lon:
+            key = f'{lat:.2f},{lon:.2f}'
+            if key not in points:
+                points[key] = {
+                    'lat': lat, 'lon': lon,
+                    'country': country, 'city': city,
+                    'count': 0, 'severity': ev['severity']
+                }
+            points[key]['count'] += 1
+            # escalate severity
+            sev_order = ['info', 'low', 'medium', 'high', 'critical']
+            if sev_order.index(ev['severity']) > sev_order.index(points[key]['severity']):
+                points[key]['severity'] = ev['severity']
+
+    return JsonResponse({'points': list(points.values())})

@@ -69,6 +69,22 @@
     </div>
 </div>
 
+<!-- Threat Origin Map -->
+<div class="glass-card p-6 mb-6">
+    <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold">🌍 Origen de amenazas en tiempo real</h3>
+        <span id="map-last-update" class="text-xs text-gray-400">Cargando...</span>
+    </div>
+    <div id="threat-map" style="height: 420px; border-radius: 12px; overflow: hidden;"></div>
+    <div class="flex gap-4 mt-3 text-xs text-gray-400">
+        <span><span class="inline-block w-3 h-3 rounded-full bg-red-500 mr-1"></span>Crítico</span>
+        <span><span class="inline-block w-3 h-3 rounded-full bg-orange-500 mr-1"></span>Alto</span>
+        <span><span class="inline-block w-3 h-3 rounded-full bg-yellow-400 mr-1"></span>Medio</span>
+        <span><span class="inline-block w-3 h-3 rounded-full bg-blue-400 mr-1"></span>Bajo / Info</span>
+        <span class="ml-auto"><span class="inline-block w-3 h-3 rounded-full bg-green-400 mr-1"></span>Tu servidor</span>
+    </div>
+</div>
+
 <!-- Module Status -->
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
     {% if user.profile.organization.subscription.siem_enabled %}
@@ -188,7 +204,88 @@
 </div>
 
 <script>
-// Events Timeline Chart
+// ── Threat Origin Map ────────────────────────────────────────────────────
+const severityColor = {
+    critical: '#ef4444',
+    high:     '#f97316',
+    medium:   '#eab308',
+    low:      '#60a5fa',
+    info:     '#60a5fa',
+};
+
+const map = L.map('threat-map', {
+    center: [20, 0],
+    zoom: 2,
+    zoomControl: true,
+    scrollWheelZoom: false,
+    attributionControl: false,
+});
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    maxZoom: 8,
+}).addTo(map);
+
+// Server marker (VPS location — update lat/lon if needed)
+const serverIcon = L.divIcon({
+    html: '<div style="width:14px;height:14px;border-radius:50%;background:#4ade80;box-shadow:0 0 10px #4ade80,0 0 20px #4ade80;"></div>',
+    className: '', iconAnchor: [7, 7]
+});
+const serverMarker = L.marker([37.5, -97.5], {icon: serverIcon})
+    .addTo(map)
+    .bindTooltip('Tu servidor (VPS)', {permanent: false});
+
+let attackLayers = [];
+
+function loadThreatMap() {
+    fetch('/api/threat-map/')
+        .then(r => r.json())
+        .then(data => {
+            // Remove old layers
+            attackLayers.forEach(l => map.removeLayer(l));
+            attackLayers = [];
+
+            data.points.forEach(p => {
+                const color = severityColor[p.severity] || '#60a5fa';
+                const radius = Math.min(6 + p.count * 2, 22);
+
+                // Pulsing circle
+                const circle = L.circleMarker([p.lat, p.lon], {
+                    radius,
+                    color,
+                    fillColor: color,
+                    fillOpacity: 0.7,
+                    weight: 1.5,
+                }).addTo(map);
+
+                circle.bindTooltip(
+                    `<b>${p.city || '?'}, ${p.country || '?'}</b><br>
+                     Severidad: <b>${p.severity.toUpperCase()}</b><br>
+                     Eventos: <b>${p.count}</b>`,
+                    {sticky: true}
+                );
+                attackLayers.push(circle);
+
+                // Attack line from origin to server
+                const line = L.polyline(
+                    [[p.lat, p.lon], [37.5, -97.5]],
+                    {color, weight: 0.6, opacity: 0.35, dashArray: '4 6'}
+                ).addTo(map);
+                attackLayers.push(line);
+            });
+
+            const now = new Date();
+            document.getElementById('map-last-update').textContent =
+                `Actualizado: ${now.toLocaleTimeString()} · ${data.points.length} orígenes únicos`;
+        })
+        .catch(() => {
+            document.getElementById('map-last-update').textContent = 'Sin datos aún';
+        });
+}
+
+loadThreatMap();
+setInterval(loadThreatMap, 30000);  // refresh cada 30s
+
+// ── Events Timeline Chart ────────────────────────────────────────────────
 const eventsCtx = document.getElementById('eventsChart').getContext('2d');
 new Chart(eventsCtx, {
     type: 'line',

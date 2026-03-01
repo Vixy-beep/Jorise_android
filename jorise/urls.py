@@ -12,10 +12,10 @@ from core.health_views import health_check
 # Optional: Import views only if needed
 try:
     from core.auth_views import login_view, register_view, logout_view
-    from core.dashboard_views import dashboard_view, subscription_management, settings_view
+    from core.dashboard_views import dashboard_view, subscription_management, settings_view, threat_map_data
 except ImportError:
     login_view = register_view = logout_view = None
-    dashboard_view = subscription_management = settings_view = None
+    dashboard_view = subscription_management = settings_view = threat_map_data = None
 
 urlpatterns = [
     # API Health Check
@@ -49,6 +49,7 @@ if login_view:
         path('dashboard/', dashboard_view, name='dashboard'),
         path('subscription/', subscription_management, name='subscription_management'),
         path('settings/', settings_view, name='settings'),
+        path('api/threat-map/', threat_map_data, name='threat_map_data'),
     ])
 
 # Serve media files in development
