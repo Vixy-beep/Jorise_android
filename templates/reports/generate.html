@@ -1,201 +1,132 @@
-{% extends 'base.html' %}
+﻿{% extends 'dashboard/base_dashboard.html' %}
 
 {% block title %}Generar Reporte - Jorise{% endblock %}
+{% block page_title %}Reportes{% endblock %}
+{% block page_subtitle %}Generar nuevo reporte de seguridad{% endblock %}
 
-{% block content %}
-<div class="row">
-    <div class="col-12">
-        <h1 class="mb-4">
-            <i class="fas fa-file-plus me-2"></i>
-            Generar Nuevo Reporte
-        </h1>
-    </div>
-</div>
-
+{% block dashboard_content %}
 <form method="post">
-    {% csrf_token %}
-    <div class="row">
-        <div class="col-lg-8 mb-4">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0">
-                        <i class="fas fa-cog me-2"></i>
-                        Configuración del Reporte
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <div class="mb-3">
-                        <label for="title" class="form-label">Título del Reporte</label>
-                        <input type="text" class="form-control" id="title" name="title" 
-                               value="Reporte de Seguridad - {{ "now"|date:"d/m/Y" }}" required>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="report_type" class="form-label">Tipo de Reporte</label>
-                        <select class="form-select" id="report_type" name="report_type" required>
-                            <option value="summary">Resumen - Vista general de todos los escaneos</option>
-                            <option value="detailed">Detallado - Análisis completo con estadísticas</option>
-                            <option value="individual">Individual - Archivo específico</option>
-                        </select>
-                    </div>
-                    
-                    <div class="mb-3" id="scan_selection" style="display: none;">
-                        <label for="scan_id" class="form-label">Seleccionar Escaneo</label>
-                        <select class="form-select" id="scan_id" name="scan_id">
-                            <option value="">Selecciona un escaneo...</option>
-                            {% for scan in scans %}
-                                <option value="{{ scan.id }}">
-                                    {{ scan.file_name }} - {{ scan.created_at|date:"d/m/Y H:i" }}
-                                </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="format" class="form-label">Formato de Salida</label>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="format" id="format_html" value="html" checked>
-                                    <label class="form-check-label" for="format_html">
-                                        <i class="fas fa-code me-2 text-primary"></i>
-                                        <strong>HTML</strong>
-                                        <br>
-                                        <small class="text-muted">Visualización interactiva en navegador</small>
-                                    </label>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="format" id="format_pdf" value="pdf">
-                                    <label class="form-check-label" for="format_pdf">
-                                        <i class="fas fa-file-pdf me-2 text-danger"></i>
-                                        <strong>PDF</strong>
-                                        <br>
-                                        <small class="text-muted">Documento descargable</small>
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="col-lg-4 mb-4">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0">
-                        <i class="fas fa-info-circle me-2"></i>
-                        Información
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <div class="alert alert-info">
-                        <h6>Vista Previa del Contenido</h6>
-                        <div id="report_preview">
-                            <p>El reporte de <strong>resumen</strong> incluirá:</p>
-                            <ul class="mb-0">
-                                <li>Estadísticas generales</li>
-                                <li>Distribución de riesgos</li>
-                                <li>Lista de archivos analizados</li>
-                                <li>Recomendaciones de seguridad</li>
-                            </ul>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <h6>Estadísticas Actuales</h6>
-                        <ul class="list-unstyled">
-                            <li><i class="fas fa-file me-2"></i>{{ scans|length }} archivos escaneados</li>
-                            <li><i class="fas fa-calendar me-2"></i>Fecha: {{ "now"|date:"d/m/Y H:i" }}</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="card mt-3">
-                <div class="card-header">
-                    <h6 class="mb-0">
-                        <i class="fas fa-cogs me-2"></i>
-                        Acciones
-                    </h6>
-                </div>
-                <div class="card-body">
-                    <div class="d-grid gap-2">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-file-export me-2"></i>
-                            Generar Reporte
-                        </button>
-                        <a href="{% url 'reports_list' %}" class="btn btn-outline-secondary">
-                            <i class="fas fa-arrow-left me-2"></i>
-                            Volver a Reportes
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</form>
+  {% csrf_token %}
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-{% if not scans %}
-<div class="row mt-4">
-    <div class="col-12">
-        <div class="alert alert-warning">
-            <i class="fas fa-exclamation-triangle me-2"></i>
-            <strong>Nota:</strong> No hay escaneos disponibles para generar reportes. 
-            <a href="{% url 'upload_file' %}" class="alert-link">Sube algunos archivos</a> primero.
+    <!-- Main form -->
+    <div class="lg:col-span-2 space-y-4">
+      <div class="bg-gray-800/60 border border-gray-700/50 rounded-xl p-6">
+        <h3 class="text-white font-semibold mb-5">âš™ï¸ ConfiguraciÃ³n del Reporte</h3>
+
+        <div class="space-y-4">
+          <div>
+            <label for="title" class="text-gray-400 text-xs uppercase block mb-1">TÃ­tulo del Reporte</label>
+            <input type="text" id="title" name="title" required
+              value="Reporte de Seguridad - {% now "d/m/Y" %}"
+              class="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500">
+          </div>
+
+          <div>
+            <label for="report_type" class="text-gray-400 text-xs uppercase block mb-1">Tipo de Reporte</label>
+            <select id="report_type" name="report_type" required
+              class="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500">
+              <option value="summary">Resumen â€” Vista general de todos los escaneos</option>
+              <option value="detailed">Detallado â€” AnÃ¡lisis completo con estadÃ­sticas</option>
+              <option value="individual">Individual â€” Archivo especÃ­fico</option>
+            </select>
+          </div>
+
+          <div id="scan_selection" class="hidden">
+            <label for="scan_id" class="text-gray-400 text-xs uppercase block mb-1">Seleccionar Escaneo</label>
+            <select id="scan_id" name="scan_id"
+              class="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500">
+              <option value="">Selecciona un escaneo...</option>
+              {% for scan in scans %}
+              <option value="{{ scan.id }}">{{ scan.file_name }} â€” {{ scan.created_at|date:"d/m/Y H:i" }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div>
+            <label class="text-gray-400 text-xs uppercase block mb-2">Formato de Salida</label>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="flex items-center gap-3 p-3 bg-gray-900 border border-gray-700 rounded-lg cursor-pointer hover:border-indigo-500 transition has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-900/20">
+                <input type="radio" name="format" value="html" checked class="accent-indigo-500">
+                <div>
+                  <p class="text-white text-sm font-medium">HTML</p>
+                  <p class="text-gray-500 text-xs">VisualizaciÃ³n interactiva en navegador</p>
+                </div>
+              </label>
+              <label class="flex items-center gap-3 p-3 bg-gray-900 border border-gray-700 rounded-lg cursor-pointer hover:border-red-500 transition has-[:checked]:border-red-500 has-[:checked]:bg-red-900/20">
+                <input type="radio" name="format" value="pdf" class="accent-red-500">
+                <div>
+                  <p class="text-white text-sm font-medium">PDF</p>
+                  <p class="text-gray-500 text-xs">Documento descargable para archivo</p>
+                </div>
+              </label>
+            </div>
+          </div>
         </div>
+      </div>
+
+      {% if not scans %}
+      <div class="bg-yellow-900/20 border border-yellow-500/30 rounded-xl p-4 text-yellow-300 text-sm">
+        âš ï¸ <strong>Nota:</strong> No hay escaneos disponibles para generar reportes.
+        <a href="{% url 'upload_file' %}" class="underline hover:text-yellow-200">Sube algunos archivos</a> primero.
+      </div>
+      {% endif %}
     </div>
-</div>
-{% endif %}
+
+    <!-- Sidebar -->
+    <div class="space-y-4">
+      <div class="bg-gray-800/60 border border-gray-700/50 rounded-xl p-5">
+        <h5 class="text-white font-semibold mb-3">â„¹ï¸ Vista Previa</h5>
+        <div id="report_preview" class="bg-gray-900/60 rounded-lg p-3 text-gray-400 text-sm">
+          <p class="text-gray-300 mb-2">El reporte de <strong>resumen</strong> incluirÃ¡:</p>
+          <ul class="space-y-1 text-xs">
+            <li>â€¢ EstadÃ­sticas generales</li>
+            <li>â€¢ DistribuciÃ³n de riesgos</li>
+            <li>â€¢ Lista de archivos analizados</li>
+            <li>â€¢ Recomendaciones de seguridad</li>
+          </ul>
+        </div>
+        <div class="mt-3 text-xs text-gray-500 space-y-1">
+          <p>ðŸ“ {{ scans|length }} archivos escaneados</p>
+          <p>ðŸ“… {% now "d/m/Y H:i" %}</p>
+        </div>
+      </div>
+
+      <div class="bg-gray-800/60 border border-gray-700/50 rounded-xl p-5 space-y-3">
+        <button type="submit" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-semibold transition">
+          ðŸ“„ Generar Reporte
+        </button>
+        <a href="{% url 'reports_list' %}" class="block w-full py-2.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm text-center transition">
+          â† Volver a Reportes
+        </a>
+      </div>
+    </div>
+
+  </div>
+</form>
 {% endblock %}
 
-{% block extra_js %}
+{% block scripts %}
 <script>
-document.getElementById('report_type').addEventListener('change', function() {
-    const reportType = this.value;
-    const scanSelection = document.getElementById('scan_selection');
-    const preview = document.getElementById('report_preview');
-    
-    if (reportType === 'individual') {
-        scanSelection.style.display = 'block';
-        document.getElementById('scan_id').required = true;
-        preview.innerHTML = `
-            <p>El reporte <strong>individual</strong> incluirá:</p>
-            <ul class="mb-0">
-                <li>Detalles completos del archivo</li>
-                <li>Resultados de VirusTotal</li>
-                <li>Análisis de riesgo detallado</li>
-                <li>Recomendaciones específicas</li>
-            </ul>
-        `;
+document.getElementById('report_type').addEventListener('change', function () {
+  const t = this.value;
+  const scanSel = document.getElementById('scan_selection');
+  const preview = document.getElementById('report_preview');
+  const scanId  = document.getElementById('scan_id');
+
+  if (t === 'individual') {
+    scanSel.classList.remove('hidden');
+    if (scanId) scanId.required = true;
+    preview.innerHTML = '<p class="text-gray-300 mb-2">El reporte <strong>individual</strong> incluirÃ¡:</p><ul class="space-y-1 text-xs"><li>â€¢ Detalles completos del archivo</li><li>â€¢ Resultados de VirusTotal</li><li>â€¢ AnÃ¡lisis de riesgo detallado</li><li>â€¢ Recomendaciones especÃ­ficas</li></ul>';
+  } else {
+    scanSel.classList.add('hidden');
+    if (scanId) scanId.required = false;
+    if (t === 'detailed') {
+      preview.innerHTML = '<p class="text-gray-300 mb-2">El reporte <strong>detallado</strong> incluirÃ¡:</p><ul class="space-y-1 text-xs"><li>â€¢ AnÃ¡lisis estadÃ­stico completo</li><li>â€¢ GrÃ¡ficos y tendencias</li><li>â€¢ Detalles de todos los escaneos</li><li>â€¢ Comparativas temporales</li></ul>';
     } else {
-        scanSelection.style.display = 'none';
-        document.getElementById('scan_id').required = false;
-        
-        if (reportType === 'detailed') {
-            preview.innerHTML = `
-                <p>El reporte <strong>detallado</strong> incluirá:</p>
-                <ul class="mb-0">
-                    <li>Análisis estadístico completo</li>
-                    <li>Gráficos y tendencias</li>
-                    <li>Detalles de todos los escaneos</li>
-                    <li>Comparativas temporales</li>
-                </ul>
-            `;
-        } else {
-            preview.innerHTML = `
-                <p>El reporte de <strong>resumen</strong> incluirá:</p>
-                <ul class="mb-0">
-                    <li>Estadísticas generales</li>
-                    <li>Distribución de riesgos</li>
-                    <li>Lista de archivos analizados</li>
-                    <li>Recomendaciones de seguridad</li>
-                </ul>
-            `;
-        }
+      preview.innerHTML = '<p class="text-gray-300 mb-2">El reporte de <strong>resumen</strong> incluirÃ¡:</p><ul class="space-y-1 text-xs"><li>â€¢ EstadÃ­sticas generales</li><li>â€¢ DistribuciÃ³n de riesgos</li><li>â€¢ Lista de archivos analizados</li><li>â€¢ Recomendaciones de seguridad</li></ul>';
     }
+  }
 });
 </script>
 {% endblock %}

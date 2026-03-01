@@ -29,6 +29,13 @@ else:
         'jorise.vineksec.online',
     ]
 
+# Trusted origins for CSRF (required for HTTPS deployments)
+CSRF_TRUSTED_ORIGINS = config(
+    'CSRF_TRUSTED_ORIGINS',
+    default='https://soc.vineksec.com,https://vineksec.com,https://www.vineksec.com',
+    cast=lambda v: [s.strip() for s in v.split(',')]
+)
+
 # Application definition
 INSTALLED_APPS = [
     'django.contrib.admin',

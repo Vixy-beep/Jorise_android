@@ -1,16 +1,16 @@
-﻿{% extends 'dashboard/base_dashboard.html' %}
+{% extends 'dashboard/base_dashboard.html' %}
 
 {% block title %}WAF - Jorise{% endblock %}
 {% block page_title %}WAF{% endblock %}
-{% block page_subtitle %}Web Application Firewall â€” DetecciÃ³n y bloqueo de ataques{% endblock %}
+{% block page_subtitle %}Web Application Firewall — Detección y bloqueo de ataques{% endblock %}
 
 {% block dashboard_content %}
 {% if not organization.subscription.waf_enabled %}
 <div class="glass-card p-6 border border-yellow-500/30 bg-yellow-500/5">
     <div class="flex items-center gap-3">
-        <span class="text-3xl">ðŸ”’</span>
+        <span class="text-3xl">🔒</span>
         <div>
-            <h3 class="font-semibold text-yellow-400">MÃ³dulo WAF no disponible</h3>
+            <h3 class="font-semibold text-yellow-400">Módulo WAF no disponible</h3>
             <p class="text-sm text-gray-400 mt-1">Requiere plan Pro o Enterprise para activarse.</p>
         </div>
         <a href="{% url 'subscription_management' %}" class="ml-auto px-4 py-2 rounded-lg bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 transition text-sm font-medium">
@@ -24,19 +24,19 @@
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
     <div class="glass-card p-5">
         <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Requests (24h)</p>
-        <p class="text-3xl font-bold text-white" id="requests-analyzed">â€”</p>
+        <p class="text-3xl font-bold text-white" id="requests-analyzed">—</p>
     </div>
     <div class="glass-card p-5">
         <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Bloqueados (24h)</p>
-        <p class="text-3xl font-bold text-red-400" id="attacks-blocked">â€”</p>
+        <p class="text-3xl font-bold text-red-400" id="attacks-blocked">—</p>
     </div>
     <div class="glass-card p-5">
         <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Reglas activas</p>
-        <p class="text-3xl font-bold text-blue-400" id="active-rules">â€”</p>
+        <p class="text-3xl font-bold text-blue-400" id="active-rules">—</p>
     </div>
     <div class="glass-card p-5">
         <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">IPs bloqueadas</p>
-        <p class="text-3xl font-bold text-orange-400" id="blocked-ip-count">â€”</p>
+        <p class="text-3xl font-bold text-orange-400" id="blocked-ip-count">—</p>
     </div>
 </div>
 
@@ -45,13 +45,13 @@
 
     <!-- Top attacking IPs -->
     <div class="glass-card p-6">
-        <h3 class="font-semibold text-lg mb-4">ðŸ”´ IPs atacantes (24h)</h3>
-        <div id="top-ips-table" class="text-sm text-gray-400">Cargandoâ€¦</div>
+        <h3 class="font-semibold text-lg mb-4">🔴 IPs atacantes (24h)</h3>
+        <div id="top-ips-table" class="text-sm text-gray-400">Cargando…</div>
     </div>
 
     <!-- Blocked IPs -->
     <div class="glass-card p-6">
-        <h3 class="font-semibold text-lg mb-4">ðŸš« IPs bloqueadas</h3>
+        <h3 class="font-semibold text-lg mb-4">🚫 IPs bloqueadas</h3>
 
         <!-- Manual block form -->
         <div class="flex gap-2 mb-4">
@@ -64,14 +64,14 @@
             </button>
         </div>
 
-        <div id="blocked-ips-list" class="text-sm text-gray-400 max-h-60 overflow-y-auto">Cargandoâ€¦</div>
+        <div id="blocked-ips-list" class="text-sm text-gray-400 max-h-60 overflow-y-auto">Cargando…</div>
     </div>
 </div>
 
 <!-- Rules Management -->
 <div class="glass-card p-6 mb-6">
     <div class="flex items-center justify-between mb-4">
-        <h3 class="font-semibold text-lg">âš™ï¸ Reglas WAF</h3>
+        <h3 class="font-semibold text-lg">⚙️ Reglas WAF</h3>
         <button onclick="showCreateRuleForm()" class="px-4 py-2 rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition text-sm font-medium">
             + Nueva regla
         </button>
@@ -90,13 +90,13 @@
                 <option value="rate_limit">Rate Limit</option>
                 <option value="custom">Personalizada</option>
             </select>
-            <input id="rule-pattern" type="text" placeholder="PatrÃ³n regex"
+            <input id="rule-pattern" type="text" placeholder="Patrón regex"
                 class="col-span-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500">
             <select id="rule-severity" class="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
                 <option value="low">Baja</option>
                 <option value="medium" selected>Media</option>
                 <option value="high">Alta</option>
-                <option value="critical">CrÃ­tica</option>
+                <option value="critical">Crítica</option>
             </select>
             <select id="rule-action" class="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
                 <option value="alert">Solo alertar</option>
@@ -110,16 +110,16 @@
         </div>
     </div>
 
-    <div id="rules-list" class="text-sm text-gray-400">Cargandoâ€¦</div>
+    <div id="rules-list" class="text-sm text-gray-400">Cargando…</div>
 </div>
 
 <!-- Recent attacks -->
 <div class="glass-card p-6">
     <div class="flex items-center justify-between mb-4">
-        <h3 class="font-semibold text-lg">ðŸ”¥ Ataques recientes</h3>
-        <span class="text-xs text-gray-400">ActualizaciÃ³n cada 30s</span>
+        <h3 class="font-semibold text-lg">🔥 Ataques recientes</h3>
+        <span class="text-xs text-gray-400">Actualización cada 30s</span>
     </div>
-    <div id="attacks-table" class="text-gray-400 text-sm">Cargandoâ€¦</div>
+    <div id="attacks-table" class="text-gray-400 text-sm">Cargando…</div>
 </div>
 
 <script>
@@ -137,9 +137,9 @@
         return v ? v.split('=')[1] : '';
     }
 
-    // â”€â”€ Severity/action badge helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Severity/action badge helpers ────────────────────────────
     function threatBadge(t) {
-        if (!t) return '<span class="text-gray-500">â€”</span>';
+        if (!t) return '<span class="text-gray-500">—</span>';
         const map = { high: 'bg-red-500/20 text-red-400', medium: 'bg-yellow-500/20 text-yellow-400', low: 'bg-green-500/20 text-green-400', critical: 'bg-red-700/30 text-red-300' };
         const cls = map[t.toLowerCase()] || 'bg-gray-500/20 text-gray-400';
         return '<span class="px-2 py-0.5 rounded ' + cls + '">' + t + '</span>';
@@ -147,10 +147,10 @@
     function actionBadge(a) {
         const map = { block: 'bg-red-500/20 text-red-400', alert: 'bg-yellow-500/20 text-yellow-400', challenge: 'bg-blue-500/20 text-blue-400' };
         const cls = map[a] || 'bg-gray-500/20 text-gray-400';
-        return '<span class="px-2 py-0.5 rounded ' + cls + '">' + (a || 'â€”') + '</span>';
+        return '<span class="px-2 py-0.5 rounded ' + cls + '">' + (a || '—') + '</span>';
     }
 
-    // â”€â”€ Load main dashboard data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Load main dashboard data ──────────────────────────────────
     function loadDashboard() {
         fetch(BASE + '/waf/dashboard/')
             .then(r => r.json())
@@ -163,7 +163,7 @@
                 // Top attacking IPs
                 const ips = s.top_blocked_ips || [];
                 if (ips.length === 0) {
-                    document.getElementById('top-ips-table').innerHTML = '<p class="text-gray-500">Sin ataques en las Ãºltimas 24h.</p>';
+                    document.getElementById('top-ips-table').innerHTML = '<p class="text-gray-500">Sin ataques en las últimas 24h.</p>';
                 } else {
                     let html = '<div class="space-y-2">';
                     ips.forEach(function (ip) {
@@ -185,15 +185,15 @@
                 } else {
                     let html = '<div class="overflow-x-auto"><table class="w-full text-sm">';
                     html += '<thead><tr class="text-left text-gray-400 border-b border-white/10">';
-                    html += '<th class="pb-2 pr-4">Timestamp</th><th class="pb-2 pr-4">IP</th><th class="pb-2 pr-4">MÃ©todo</th><th class="pb-2 pr-4">URL</th><th class="pb-2 pr-4">Score</th><th class="pb-2">AcciÃ³n</th></tr></thead><tbody>';
+                    html += '<th class="pb-2 pr-4">Timestamp</th><th class="pb-2 pr-4">IP</th><th class="pb-2 pr-4">Método</th><th class="pb-2 pr-4">URL</th><th class="pb-2 pr-4">Score</th><th class="pb-2">Acción</th></tr></thead><tbody>';
                     attacks.forEach(function (a) {
-                        const ts = a.timestamp ? new Date(a.timestamp).toLocaleString() : 'â€”';
+                        const ts = a.timestamp ? new Date(a.timestamp).toLocaleString() : '—';
                         html += '<tr class="border-b border-white/5 hover:bg-white/5">';
                         html += '<td class="py-2 pr-4 text-gray-400 text-xs">' + ts + '</td>';
-                        html += '<td class="py-2 pr-4 font-mono">' + (a.source_ip || 'â€”') + '</td>';
-                        html += '<td class="py-2 pr-4">' + (a.method || 'â€”') + '</td>';
-                        html += '<td class="py-2 pr-4 max-w-xs truncate text-gray-400">' + (a.url || 'â€”') + '</td>';
-                        const score = a.threat_score != null ? (a.threat_score * 100).toFixed(0) + '%' : 'â€”';
+                        html += '<td class="py-2 pr-4 font-mono">' + (a.source_ip || '—') + '</td>';
+                        html += '<td class="py-2 pr-4">' + (a.method || '—') + '</td>';
+                        html += '<td class="py-2 pr-4 max-w-xs truncate text-gray-400">' + (a.url || '—') + '</td>';
+                        const score = a.threat_score != null ? (a.threat_score * 100).toFixed(0) + '%' : '—';
                         html += '<td class="py-2 pr-4">' + score + '</td>';
                         html += '<td class="py-2"><button onclick="blockIPDirect(\'' + (a.source_ip || '') + '\')" '
                             + 'class="px-2 py-0.5 rounded text-xs bg-red-500/10 text-red-400 hover:bg-red-500/25 transition">Bloquear IP</button></td>';
@@ -206,7 +206,7 @@
             .catch(() => {});
     }
 
-    // â”€â”€ Blocked IPs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Blocked IPs ───────────────────────────────────────────────
     function loadBlockedIPs() {
         fetch(BASE + '/waf/ip/blocked/')
             .then(r => r.json())
@@ -219,7 +219,7 @@
                 }
                 let html = '<div class="space-y-2">';
                 ips.forEach(function (item) {
-                    const ts = item.blocked_at ? new Date(item.blocked_at).toLocaleDateString() : 'â€”';
+                    const ts = item.blocked_at ? new Date(item.blocked_at).toLocaleDateString() : '—';
                     html += '<div class="flex items-center justify-between p-2 rounded bg-white/5">'
                         + '<div><span class="font-mono text-red-400">' + item.ip + '</span>'
                         + '<span class="ml-2 text-xs text-gray-500">' + (item.reason || '') + '</span>'
@@ -234,7 +234,7 @@
             .catch(() => {});
     }
 
-    // â”€â”€ Rules â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Rules ─────────────────────────────────────────────────────
     function loadRules() {
         fetch(BASE + '/waf/rules/')
             .then(r => r.json())
@@ -246,7 +246,7 @@
                 }
                 let html = '<div class="overflow-x-auto"><table class="w-full text-sm">';
                 html += '<thead><tr class="text-left text-gray-400 border-b border-white/10">';
-                html += '<th class="pb-2 pr-4">Nombre</th><th class="pb-2 pr-4">Tipo</th><th class="pb-2 pr-4">Severidad</th><th class="pb-2 pr-4">AcciÃ³n</th><th class="pb-2 pr-4">Disparos</th><th class="pb-2">Controles</th></tr></thead><tbody>';
+                html += '<th class="pb-2 pr-4">Nombre</th><th class="pb-2 pr-4">Tipo</th><th class="pb-2 pr-4">Severidad</th><th class="pb-2 pr-4">Acción</th><th class="pb-2 pr-4">Disparos</th><th class="pb-2">Controles</th></tr></thead><tbody>';
                 rules.forEach(function (r) {
                     const enabledBg = r.is_enabled ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-500';
                     const toggleLabel = r.is_enabled ? 'Desactivar' : 'Activar';
@@ -268,7 +268,7 @@
             .catch(() => {});
     }
 
-    // â”€â”€ Actions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Actions ───────────────────────────────────────────────────
     window.blockIPDirect = function (ip) {
         if (!ip) return;
         fetch(BASE + '/waf/ip/block/', {
@@ -299,7 +299,7 @@
     };
 
     window.unblockIP = function (ip) {
-        if (!confirm('Â¿Desbloquear ' + ip + '?')) return;
+        if (!confirm('¿Desbloquear ' + ip + '?')) return;
         fetch(BASE + '/waf/ip/unblock/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
@@ -321,7 +321,7 @@
     };
 
     window.deleteRule = function (ruleId) {
-        if (!confirm('Â¿Eliminar esta regla?')) return;
+        if (!confirm('¿Eliminar esta regla?')) return;
         fetch(BASE + '/waf/rules/' + ruleId + '/delete/', {
             method: 'POST',
             headers: { 'X-CSRFToken': csrfToken() }
@@ -346,7 +346,7 @@
             severity: document.getElementById('rule-severity').value,
             action: document.getElementById('rule-action').value,
         };
-        if (!body.name || !body.pattern) { alert('Nombre y patrÃ³n son obligatorios'); return; }
+        if (!body.name || !body.pattern) { alert('Nombre y patrón son obligatorios'); return; }
         fetch(BASE + '/waf/rules/create/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
@@ -357,7 +357,7 @@
         });
     };
 
-    // â”€â”€ Initial load â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Initial load ──────────────────────────────────────────────
     loadDashboard();
     loadBlockedIPs();
     loadRules();

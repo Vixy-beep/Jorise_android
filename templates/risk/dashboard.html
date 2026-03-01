@@ -962,51 +962,59 @@ function riskApp() {
     },
 
     async loadStats() {
-      const r = await fetch('/risk/api/stats/');
-      const d = await r.json();
-      if (d.success) {
-        this.stats = d.stats;
-        this.$nextTick(() => { this.buildCharts(); this.buildKpiCharts(); });
-      }
+      try {
+        const r = await fetch('/risk/api/stats/');
+        const d = await r.json();
+        if (d.success) {
+          this.stats = d.stats;
+          this.$nextTick(() => { this.buildCharts(); this.buildKpiCharts(); });
+        }
+      } catch(e) { console.error('loadStats error:', e); }
     },
 
     async loadRisks() {
       this.loadingRisks = true;
-      const p = new URLSearchParams();
-      if (this.riskFilters.status)   p.set('status',   this.riskFilters.status);
-      if (this.riskFilters.level)    p.set('level',    this.riskFilters.level);
-      if (this.riskFilters.category) p.set('category', this.riskFilters.category);
-      if (this.riskSearch)           p.set('q',        this.riskSearch);
-      if (this.riskFilters._overdue) p.set('overdue',  '1');
-      const r = await fetch('/risk/api/risks/?' + p);
-      const d = await r.json();
-      this.risks = d.risks || [];
-      this.tabs[0].badge = this.risks.length || null;
-      this.loadingRisks = false;
+      try {
+        const p = new URLSearchParams();
+        if (this.riskFilters.status)   p.set('status',   this.riskFilters.status);
+        if (this.riskFilters.level)    p.set('level',    this.riskFilters.level);
+        if (this.riskFilters.category) p.set('category', this.riskFilters.category);
+        if (this.riskSearch)           p.set('q',        this.riskSearch);
+        if (this.riskFilters._overdue) p.set('overdue',  '1');
+        const r = await fetch('/risk/api/risks/?' + p);
+        const d = await r.json();
+        this.risks = d.risks || [];
+        this.tabs[0].badge = this.risks.length || null;
+      } catch(e) { console.error('loadRisks error:', e); }
+      finally { this.loadingRisks = false; }
     },
 
     async loadAssets() {
       this.loadingAssets = true;
-      const r = await fetch('/risk/api/assets/');
-      const d = await r.json();
-      this.assets = d.assets || [];
-      this.loadingAssets = false;
-      if (this.stats.top_assets_at_risk) this.$nextTick(() => this.buildTopAssetsChart());
+      try {
+        const r = await fetch('/risk/api/assets/');
+        const d = await r.json();
+        this.assets = d.assets || [];
+        if (this.stats.top_assets_at_risk) this.$nextTick(() => this.buildTopAssetsChart());
+      } catch(e) { console.error('loadAssets error:', e); }
+      finally { this.loadingAssets = false; }
     },
 
     async loadVulns() {
       this.loadingVulns = true;
-      const p = new URLSearchParams();
-      if (this.vulnFilters.status)   p.set('status',   this.vulnFilters.status);
-      if (this.vulnFilters.severity) p.set('severity', this.vulnFilters.severity);
-      if (this.vulnSearch)           p.set('q',        this.vulnSearch);
-      const r = await fetch('/risk/api/vulns/?' + p);
-      const d = await r.json();
-      this.vulns = d.vulnerabilities || [];
-      const open = this.vulns.filter(v => v.status==='open' || v.status==='in_progress').length;
-      this.tabs[3].badge = open || null;
-      this.loadingVulns = false;
-      this.$nextTick(() => this.buildVulnSevDonut());
+      try {
+        const p = new URLSearchParams();
+        if (this.vulnFilters.status)   p.set('status',   this.vulnFilters.status);
+        if (this.vulnFilters.severity) p.set('severity', this.vulnFilters.severity);
+        if (this.vulnSearch)           p.set('q',        this.vulnSearch);
+        const r = await fetch('/risk/api/vulns/?' + p);
+        const d = await r.json();
+        this.vulns = d.vulnerabilities || [];
+        const open = this.vulns.filter(v => v.status==='open' || v.status==='in_progress').length;
+        this.tabs[3].badge = open || null;
+        this.$nextTick(() => this.buildVulnSevDonut());
+      } catch(e) { console.error('loadVulns error:', e); }
+      finally { this.loadingVulns = false; }
     },
 
     async openDetail(id) {

@@ -1,180 +1,104 @@
-{% extends 'base.html' %}
+{% extends 'dashboard/base_dashboard.html' %}
 
 {% block title %}Reportes - Jorise{% endblock %}
+{% block page_title %}Reportes{% endblock %}
+{% block page_subtitle %}Reportes de seguridad generados{% endblock %}
 
-{% block content %}
-<div class="row">
-    <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1>
-                <i class="fas fa-file-alt me-2"></i>
-                Reportes de Seguridad
-            </h1>
-            <a href="{% url 'generate_report' %}" class="btn btn-primary">
-                <i class="fas fa-plus me-2"></i>
-                Generar Nuevo Reporte
-            </a>
-        </div>
-    </div>
+{% block dashboard_content %}
+<div class="flex items-center justify-between mb-6">
+  <div></div>
+  <a href="{% url 'generate_report' %}" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition flex items-center gap-2">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+    Generar Nuevo Reporte
+  </a>
 </div>
 
 {% if reports %}
-<div class="row">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead class="table-dark">
-                            <tr>
-                                <th>Título</th>
-                                <th>Tipo</th>
-                                <th>Formato</th>
-                                <th>Archivos</th>
-                                <th>Fecha</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for report in reports %}
-                            <tr>
-                                <td>
-                                    <div class="fw-bold">{{ report.title }}</div>
-                                </td>
-                                <td>
-                                    <span class="badge bg-info">
-                                        {{ report.get_report_type_display }}
-                                    </span>
-                                </td>
-                                <td>
-                                    {% if report.format == 'pdf' %}
-                                        <span class="badge bg-danger">
-                                            <i class="fas fa-file-pdf me-1"></i>PDF
-                                        </span>
-                                    {% else %}
-                                        <span class="badge bg-primary">
-                                            <i class="fas fa-code me-1"></i>HTML
-                                        </span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <span class="badge bg-secondary">
-                                        {{ report.scan_results.count }} archivo(s)
-                                    </span>
-                                </td>
-                                <td>
-                                    <div>{{ report.generated_date|date:"d/m/Y" }}</div>
-                                    <small class="text-muted">{{ report.generated_date|date:"H:i" }}</small>
-                                </td>
-                                <td>
-                                    <div class="btn-group" role="group">
-                                        <a href="{% url 'view_report' report.id %}" class="btn btn-sm btn-outline-primary">
-                                            <i class="fas fa-eye"></i> Ver
-                                        </a>
-                                        <form method="post" action="{% url 'delete_report' report.id %}" class="d-inline">
-                                            {% csrf_token %}
-                                            <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Eliminar este reporte?')">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        </form>
-                                    </div>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+<div class="bg-gray-800/60 border border-gray-700/50 rounded-xl overflow-hidden mb-6">
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-900/50 text-gray-400 uppercase text-xs">
+        <tr>
+          <th class="px-4 py-3 text-left">Título</th>
+          <th class="px-4 py-3 text-left">Tipo</th>
+          <th class="px-4 py-3 text-left">Formato</th>
+          <th class="px-4 py-3 text-left">Archivos</th>
+          <th class="px-4 py-3 text-left">Fecha</th>
+          <th class="px-4 py-3 text-left">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for report in reports %}
+        <tr class="border-b border-gray-700/50 hover:bg-gray-700/30 transition-colors">
+          <td class="px-4 py-3 text-white font-medium">{{ report.title }}</td>
+          <td class="px-4 py-3">
+            <span class="px-2 py-0.5 rounded-full text-xs bg-blue-900/60 text-blue-300">{{ report.get_report_type_display }}</span>
+          </td>
+          <td class="px-4 py-3">
+            {% if report.format == 'pdf' %}
+              <span class="px-2 py-0.5 rounded-full text-xs bg-red-900/60 text-red-300">PDF</span>
+            {% else %}
+              <span class="px-2 py-0.5 rounded-full text-xs bg-indigo-900/60 text-indigo-300">HTML</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3">
+            <span class="px-2 py-0.5 rounded-full text-xs bg-gray-700 text-gray-300">{{ report.scan_results.count }} archivo(s)</span>
+          </td>
+          <td class="px-4 py-3 text-gray-400">
+            {{ report.generated_date|date:"d/m/Y" }}
+            <span class="text-gray-600 text-xs ml-1">{{ report.generated_date|date:"H:i" }}</span>
+          </td>
+          <td class="px-4 py-3">
+            <div class="flex gap-2">
+              <a href="{% url 'view_report' report.id %}" class="text-indigo-400 hover:text-indigo-300 text-xs transition">Ver</a>
+              <form method="post" action="{% url 'delete_report' report.id %}" class="inline">
+                {% csrf_token %}
+                <button type="submit" onclick="return confirm('¿Eliminar este reporte?')" class="text-red-500 hover:text-red-400 text-xs transition">✕</button>
+              </form>
             </div>
-        </div>
-    </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 
 {% else %}
-<!-- Estado vacío -->
-<div class="row">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-body text-center py-5">
-                <i class="fas fa-file-alt fa-4x text-muted mb-4"></i>
-                <h3 class="text-muted">No hay reportes generados</h3>
-                <p class="text-muted mb-4">
-                    Los reportes te permiten documentar y compartir los resultados de los análisis de seguridad.
-                </p>
-                <a href="{% url 'generate_report' %}" class="btn btn-primary btn-lg">
-                    <i class="fas fa-plus me-2"></i>
-                    Generar Primer Reporte
-                </a>
-            </div>
-        </div>
-    </div>
+<div class="bg-gray-800/60 border border-gray-700/50 rounded-xl p-16 text-center mb-6">
+  <div class="text-5xl mb-4">📄</div>
+  <h3 class="text-white font-semibold text-lg mb-2">No hay reportes generados</h3>
+  <p class="text-gray-400 text-sm mb-6">Los reportes te permiten documentar y compartir los resultados de los análisis de seguridad.</p>
+  <a href="{% url 'generate_report' %}" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition">
+    Generar Primer Reporte
+  </a>
 </div>
 {% endif %}
 
-<!-- Información adicional -->
-<div class="row mt-4">
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-header">
-                <h6 class="mb-0">
-                    <i class="fas fa-info-circle me-2"></i>
-                    Tipos de Reporte
-                </h6>
-            </div>
-            <div class="card-body">
-                <ul class="list-unstyled mb-0">
-                    <li class="mb-2">
-                        <strong>Individual:</strong> Análisis detallado de un archivo específico
-                    </li>
-                    <li class="mb-2">
-                        <strong>Resumen:</strong> Vista general de todos los escaneos
-                    </li>
-                    <li class="mb-0">
-                        <strong>Detallado:</strong> Reporte completo con estadísticas avanzadas
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-header">
-                <h6 class="mb-0">
-                    <i class="fas fa-download me-2"></i>
-                    Formatos Disponibles
-                </h6>
-            </div>
-            <div class="card-body">
-                <ul class="list-unstyled mb-0">
-                    <li class="mb-2">
-                        <i class="fas fa-code me-2 text-primary"></i>
-                        <strong>HTML:</strong> Visualización interactiva en navegador
-                    </li>
-                    <li class="mb-0">
-                        <i class="fas fa-file-pdf me-2 text-danger"></i>
-                        <strong>PDF:</strong> Documento descargable para archivo
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-header">
-                <h6 class="mb-0">
-                    <i class="fas fa-lightbulb me-2"></i>
-                    Consejos
-                </h6>
-            </div>
-            <div class="card-body">
-                <ul class="list-unstyled mb-0">
-                    <li class="mb-2">• Genera reportes regulares para auditorías</li>
-                    <li class="mb-2">• Usa PDF para documentación oficial</li>
-                    <li class="mb-0">• HTML para análisis interactivo</li>
-                </ul>
-            </div>
-        </div>
-    </div>
+<!-- Info cards -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+  <div class="bg-gray-800/60 border border-gray-700/50 rounded-xl p-4">
+    <h6 class="text-white text-sm font-semibold mb-3">📋 Tipos de Reporte</h6>
+    <ul class="space-y-2 text-gray-400 text-xs">
+      <li><span class="text-white font-medium">Individual:</span> Análisis detallado de un archivo específico</li>
+      <li><span class="text-white font-medium">Resumen:</span> Vista general de todos los escaneos</li>
+      <li><span class="text-white font-medium">Detallado:</span> Reporte completo con estadísticas avanzadas</li>
+    </ul>
+  </div>
+  <div class="bg-gray-800/60 border border-gray-700/50 rounded-xl p-4">
+    <h6 class="text-white text-sm font-semibold mb-3">📥 Formatos Disponibles</h6>
+    <ul class="space-y-2 text-gray-400 text-xs">
+      <li><span class="text-white font-medium">HTML:</span> Visualización interactiva en navegador</li>
+      <li><span class="text-white font-medium">PDF:</span> Documento descargable para archivo</li>
+    </ul>
+  </div>
+  <div class="bg-gray-800/60 border border-gray-700/50 rounded-xl p-4">
+    <h6 class="text-white text-sm font-semibold mb-3">💡 Consejos</h6>
+    <ul class="space-y-2 text-gray-400 text-xs">
+      <li>• Genera reportes regulares para auditorías</li>
+      <li>• Usa PDF para documentación oficial</li>
+      <li>• HTML para análisis interactivo</li>
+    </ul>
+  </div>
 </div>
 {% endblock %}

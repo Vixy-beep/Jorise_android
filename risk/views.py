@@ -19,7 +19,18 @@ from core.models import Organization, ITAsset, Risk, RiskReview, Vulnerability
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _get_org(request):
-    return request.user.profile.organization
+    try:
+        return request.user.profile.organization
+    except Exception:
+        return None
+
+
+def _require_org(request):
+    """Return (org, None) on success, or (None, JsonResponse error) if no org."""
+    org = _get_org(request)
+    if org is None:
+        return None, JsonResponse({'success': False, 'error': 'No organization associated with this account.'}, status=403)
+    return org, None
 
 
 def _risk_dict(r, include_description=True):
