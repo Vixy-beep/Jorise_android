@@ -22,6 +22,9 @@ else:
         'localhost',
         '127.0.0.1',
         '207.244.255.208',   # VPS principal
+        'vineksec.com',
+        'www.vineksec.com',
+        '.vineksec.com',
         '.onrender.com',
         'jorise.vineksec.online',
     ]
@@ -163,6 +166,10 @@ CORS_ALLOWED_ORIGINS = config(
         'http://207.244.255.208',
         'http://207.244.255.208:8000',
         'http://207.244.255.208:3000',
+        'http://vineksec.com',
+        'https://vineksec.com',
+        'http://www.vineksec.com',
+        'https://www.vineksec.com',
     ])
 ).split(',')
 

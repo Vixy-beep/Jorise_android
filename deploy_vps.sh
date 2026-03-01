@@ -58,7 +58,7 @@ chown -R guardian:guardian "$GUARDIAN_VENV"
 echo "[7/8] .env y migraciones..."
 if [ ! -f "$JORISE_DIR/.env" ]; then
     SECRET=$(python3 -c "import secrets; print(secrets.token_urlsafe(50))")
-    printf "SECRET_KEY=%s\nDEBUG=False\nALLOWED_HOSTS=207.244.255.208,localhost\nCORS_ALLOWED_ORIGINS=http://207.244.255.208,http://207.244.255.208:8000\nHTTPS_ENABLED=False\n" "$SECRET" > "$JORISE_DIR/.env"
+    printf "SECRET_KEY=%s\nDEBUG=False\nALLOWED_HOSTS=vineksec.com,www.vineksec.com,207.244.255.208,localhost\nCORS_ALLOWED_ORIGINS=http://vineksec.com,https://vineksec.com,http://www.vineksec.com,https://www.vineksec.com,http://207.244.255.208\nHTTPS_ENABLED=False\n" "$SECRET" > "$JORISE_DIR/.env"
     chown jorise:jorise "$JORISE_DIR/.env"
     chmod 600 "$JORISE_DIR/.env"
 fi
@@ -101,7 +101,7 @@ SUPEOF
 cat > /etc/nginx/sites-available/jorise << NGINXEOF
 server {
     listen 80;
-    server_name 207.244.255.208;
+    server_name vineksec.com www.vineksec.com 207.244.255.208;
     client_max_body_size 500M;
     location /static/ { alias ${JORISE_DIR}/staticfiles/; expires 30d; }
     location /media/  { alias ${JORISE_DIR}/media/; }
