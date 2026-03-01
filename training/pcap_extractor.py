@@ -430,3 +430,7 @@ def align_to_model_features(df: pd.DataFrame, model_features: list[str]) -> pd.D
             result[feat] = 0.0  # feature no disponible → relleno con 0
 
     return result.fillna(0).replace([float('inf'), float('-inf')], 0)
+
+
+# Alias used by capture_session.py
+UNIVERSAL_FEATURES_MAP = PCAP_TO_CICIDS

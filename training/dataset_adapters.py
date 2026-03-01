@@ -545,24 +545,62 @@ class CICIOT2023Adapter:
 
 class JoriseLabAdapter:
     """
-    Adapter for Jorise Lab 2026 — your own captured and labeled traffic.
-    Expects CICFlowMeter-exported CSVs (same format as CIC-IDS2017).
+    Adapter for Jorise Lab 2026 — traffic captured with capture_session.py
+    or manually with Wireshark/tcpdump + CICFlowMeter.
+
+    Auto-detects format:
+      - Universal format (capture_session.py output): columns like duration, total_fwd_pkts, ...
+      - CIC-IDS2017 format (CICFlowMeter output): columns like 'Flow Duration', 'Total Fwd Packets', ...
     """
     NAME = 'Jorise-Lab-2026'
 
+    # Universal column names produced by capture_session.py
+    UNIVERSAL_COLS = [
+        'duration', 'total_fwd_pkts', 'total_bwd_pkts', 'total_fwd_bytes', 'total_bwd_bytes',
+        'bytes_per_pkt', 'pkts_per_sec', 'bytes_per_sec', 'fwd_bwd_pkt_ratio', 'fwd_bwd_byte_ratio',
+        'avg_pkt_size', 'flow_iat_mean', 'flow_iat_std', 'fwd_iat_mean', 'bwd_iat_mean',
+        'fin_flag_cnt', 'syn_flag_cnt', 'rst_flag_cnt', 'ack_flag_cnt', 'psh_flag_cnt', 'urg_flag_cnt',
+        'fwd_psh_flags', 'bwd_psh_flags', 'ttl_fwd', 'proto_encoded',
+    ]
+
     def download_info(self):
         return (
-            "Jorise Lab 2026 — Your own dataset.\n"
-            "Capture: tcpdump / Wireshark on lab VMs\n"
-            "Process: CICFlowMeter (Java) or flowtbag\n"
-            "  docker run -v $(pwd):/data cic/cicflowmeter -f capture.pcap -c /data/flows.csv\n"
-            "Label: add Label column manually after capture\n"
+            "Jorise Lab 2026 — Your own captured traffic.\n"
+            "Capture with: .venv\\Scripts\\python.exe capture_session.py --label DDoS --duration 120\n"
+            "Or manually:  Wireshark/tcpdump → CICFlowMeter → add Label column\n"
             "Place in: media/training/datasets/jorise_lab/"
         )
 
+    def _is_universal_format(self, df: pd.DataFrame) -> bool:
+        """True if the CSV uses universal column names (capture_session.py output)."""
+        hits = sum(1 for c in self.UNIVERSAL_COLS if c in df.columns)
+        return hits >= 10
+
     def load(self, csv_path: str, n: int = 15000) -> tuple[pd.DataFrame, pd.Series]:
-        """Same format as CIC-IDS2017 (CICFlowMeter output)."""
-        return CICIDS2017Adapter().load(csv_path, n)
+        """Load lab CSV — auto-detects universal or CIC-IDS2017 format."""
+        df = pd.read_csv(csv_path, low_memory=False)
+        df.columns = df.columns.str.strip()
+
+        if self._is_universal_format(df):
+            # Already in universal format — just extract label and features
+            if 'Label' not in df.columns:
+                raise ValueError(f"No Label column in {csv_path}")
+            y = df['Label'].apply(normalize_label)
+            out = pd.DataFrame()
+            for col in UNIVERSAL_FEATURES:
+                if col in df.columns:
+                    out[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+                else:
+                    out[col] = 0.0
+            out = out.replace([np.inf, -np.inf], np.nan).fillna(0)
+            for col in out.select_dtypes(include=[np.number]).columns:
+                out[col] = out[col].clip(lower=0)
+            if len(out) > n:
+                out, y = _stratified_sample(out, y, n)
+            return out, y.reset_index(drop=True)
+        else:
+            # CIC-IDS2017 format (CICFlowMeter output)
+            return CICIDS2017Adapter().load(csv_path, n)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
