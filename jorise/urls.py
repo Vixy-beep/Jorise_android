@@ -7,6 +7,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.shortcuts import redirect
 from core.health_views import health_check
 
 # Optional: Import views only if needed
@@ -18,8 +19,11 @@ except ImportError:
     dashboard_view = subscription_management = settings_view = threat_map_data = None
 
 urlpatterns = [
-    # API Health Check
-    path('', health_check, name='api_health'),
+    # Raíz → redirige al login
+    path('', lambda request: redirect('/login/', permanent=False), name='root'),
+
+    # API Health Check (para el VPS / uptime monitors)
+    path('health/', health_check, name='api_health'),
     
     # Django Admin
     path('admin/', admin.site.urls),
