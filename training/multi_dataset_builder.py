@@ -213,10 +213,20 @@ def cross_dataset_eval(
     if len(X_train) == 0 or len(X_test) == 0:
         return {'error': f'Insufficient data for {train_source} or {test_source}'}
 
-    # Encode labels — fit on union so both sets are covered
+    # Encode labels — fit ONLY on train so XGBoost gets contiguous 0..N-1 classes.
+    # For test, restrict to known train classes (generalization to shared classes).
     le = LabelEncoder()
-    le.fit(pd.concat([y_train, y_test]))
-    y_tr_enc   = le.transform(y_train)
+    le.fit(y_train)
+    train_classes = set(le.classes_.tolist())
+
+    y_tr_enc = le.transform(y_train)
+
+    # Filter test to shared classes only
+    shared_mask = y_test.isin(train_classes)
+    if shared_mask.sum() == 0:
+        return {'error': f'No shared classes between {train_source} and {test_source}'}
+    X_test   = X_test[shared_mask].reset_index(drop=True)
+    y_test   = y_test[shared_mask].reset_index(drop=True)
     y_test_enc = le.transform(y_test)
     classes = le.classes_.tolist()
 
@@ -231,7 +241,16 @@ def cross_dataset_eval(
         clf.fit(X_tr_s, y_tr_enc)
 
     y_pred = clf.predict(X_test_s)
-    metrics = _compute_fold_metrics(y_test_enc, y_pred, classes)
+
+    # Restrict metrics to labels actually present in the test set
+    active_idx     = sorted(set(np.unique(y_test_enc)) | set(np.unique(y_pred)))
+    active_classes = [classes[i] for i in active_idx]
+    metrics = _compute_fold_metrics(
+        np.array([active_idx.index(v) for v in y_test_enc]),
+        np.array([active_idx.index(v) for v in y_pred]),
+        active_classes,
+    )
+    metrics['tested_on_classes'] = active_classes
 
     passed = metrics['macro_f1'] >= 0.70
     print(f"  {'✓' if passed else '✗'} macro-F1={metrics['macro_f1']*100:.1f}%  "
