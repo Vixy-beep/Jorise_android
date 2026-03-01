@@ -20,9 +20,16 @@ urlpatterns = [
     path('api/assets/create/', views.create_asset, name='create_asset'),
     path('api/assets/<int:asset_id>/delete/', views.delete_asset, name='delete_asset'),
 
+    # Risks — detail + export
+    path('api/risks/<int:risk_id>/detail/', views.risk_detail, name='risk_detail'),
+    path('api/export/risks.csv', views.export_risks_csv, name='export_risks_csv'),
+
     # Vulnerabilities CRUD
     path('api/vulns/', views.list_vulnerabilities, name='list_vulnerabilities'),
     path('api/vulns/create/', views.create_vulnerability, name='create_vulnerability'),
     path('api/vulns/<int:vuln_id>/update/', views.update_vulnerability, name='update_vulnerability'),
     path('api/vulns/<int:vuln_id>/delete/', views.delete_vulnerability, name='delete_vulnerability'),
+
+    # Demo seed
+    path('api/seed/', views.seed_demo, name='seed_demo'),
 ]
