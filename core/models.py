@@ -57,6 +57,7 @@ class Subscription(models.Model):
     antivirus_enabled = models.BooleanField(default=True)
     sandbox_enabled = models.BooleanField(default=True)
     ai_analysis_enabled = models.BooleanField(default=False)
+    risk_enabled = models.BooleanField(default=True)
     
     trial_ends_at = models.DateTimeField(null=True, blank=True)
     current_period_start = models.DateTimeField(default=timezone.now)
@@ -444,6 +445,219 @@ class SandboxAnalysis(models.Model):
     
     def __str__(self):
         return f"{self.file_name} - {self.get_verdict_display()}"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GESTIÓN DE RIESGOS TI
+# ─────────────────────────────────────────────────────────────────────────────
+
+class ITAsset(models.Model):
+    """Inventario de activos TI de la organización"""
+    ASSET_TYPES = [
+        ('server', 'Servidor'),
+        ('workstation', 'Estación de trabajo'),
+        ('app', 'Aplicación'),
+        ('database', 'Base de datos'),
+        ('network', 'Equipo de red'),
+        ('cloud', 'Servicio cloud'),
+        ('mobile', 'Dispositivo móvil'),
+        ('other', 'Otro'),
+    ]
+    CRITICALITY_CHOICES = [
+        ('critical', 'Crítico'),
+        ('high', 'Alto'),
+        ('medium', 'Medio'),
+        ('low', 'Bajo'),
+    ]
+
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='assets')
+    name = models.CharField(max_length=200)
+    asset_type = models.CharField(max_length=20, choices=ASSET_TYPES)
+    description = models.TextField(blank=True)
+    owner = models.CharField(max_length=100, blank=True)
+    ip_address = models.CharField(max_length=50, blank=True)
+    location = models.CharField(max_length=200, blank=True)
+    criticality = models.CharField(max_length=20, choices=CRITICALITY_CHOICES, default='medium')
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return f"{self.name} ({self.get_asset_type_display()})"
+
+
+class Risk(models.Model):
+    """Registro de riesgos TI — ISO 27005 / NIST"""
+    LIKELIHOOD_CHOICES = [
+        (1, 'Muy baja'),
+        (2, 'Baja'),
+        (3, 'Media'),
+        (4, 'Alta'),
+        (5, 'Muy alta'),
+    ]
+    IMPACT_CHOICES = [
+        (1, 'Insignificante'),
+        (2, 'Menor'),
+        (3, 'Moderado'),
+        (4, 'Mayor'),
+        (5, 'Catastrófico'),
+    ]
+    STATUS_CHOICES = [
+        ('open', 'Abierto'),
+        ('in_treatment', 'En tratamiento'),
+        ('mitigated', 'Mitigado'),
+        ('accepted', 'Aceptado'),
+        ('closed', 'Cerrado'),
+    ]
+    CATEGORY_CHOICES = [
+        ('cybersecurity', 'Ciberseguridad'),
+        ('operational', 'Operacional'),
+        ('compliance', 'Cumplimiento normativo'),
+        ('data', 'Datos e información'),
+        ('infrastructure', 'Infraestructura'),
+        ('third_party', 'Terceros / Proveedores'),
+        ('people', 'Personas'),
+        ('financial', 'Financiero'),
+    ]
+    TREATMENT_CHOICES = [
+        ('mitigate', 'Mitigar'),
+        ('transfer', 'Transferir'),
+        ('accept', 'Aceptar'),
+        ('avoid', 'Evitar'),
+    ]
+
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='risks')
+    title = models.CharField(max_length=300)
+    description = models.TextField()
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
+    affected_asset = models.ForeignKey(
+        'ITAsset', on_delete=models.SET_NULL, null=True, blank=True, related_name='risks'
+    )
+
+    # Riesgo inherente
+    likelihood = models.IntegerField(
+        choices=LIKELIHOOD_CHOICES, validators=[MinValueValidator(1), MaxValueValidator(5)]
+    )
+    impact = models.IntegerField(
+        choices=IMPACT_CHOICES, validators=[MinValueValidator(1), MaxValueValidator(5)]
+    )
+
+    # Tratamiento
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open')
+    treatment_type = models.CharField(max_length=20, choices=TREATMENT_CHOICES, blank=True)
+    treatment_plan = models.TextField(blank=True)
+    owner = models.CharField(max_length=100, blank=True)
+    due_date = models.DateField(null=True, blank=True)
+
+    # Riesgo residual (post-tratamiento)
+    residual_likelihood = models.IntegerField(
+        choices=LIKELIHOOD_CHOICES, null=True, blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(5)]
+    )
+    residual_impact = models.IntegerField(
+        choices=IMPACT_CHOICES, null=True, blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(5)]
+    )
+
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-likelihood', '-impact']
+
+    @property
+    def risk_score(self):
+        return self.likelihood * self.impact
+
+    @property
+    def residual_score(self):
+        if self.residual_likelihood and self.residual_impact:
+            return self.residual_likelihood * self.residual_impact
+        return None
+
+    @property
+    def risk_level(self):
+        score = self.risk_score
+        if score >= 15:
+            return 'critical'
+        elif score >= 10:
+            return 'high'
+        elif score >= 5:
+            return 'medium'
+        return 'low'
+
+    def __str__(self):
+        return f"[{self.risk_score}] {self.title}"
+
+
+class RiskReview(models.Model):
+    """Historial de revisiones de un riesgo"""
+    risk = models.ForeignKey(Risk, on_delete=models.CASCADE, related_name='reviews')
+    reviewer = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    notes = models.TextField()
+    status_before = models.CharField(max_length=20)
+    status_after = models.CharField(max_length=20)
+    likelihood_before = models.IntegerField()
+    impact_before = models.IntegerField()
+    likelihood_after = models.IntegerField()
+    impact_after = models.IntegerField()
+    reviewed_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ['-reviewed_at']
+
+    def __str__(self):
+        return f"Review #{self.id} — {self.risk.title}"
+
+
+class Vulnerability(models.Model):
+    """Gestión de vulnerabilidades vinculadas a activos y riesgos"""
+    SEVERITY_CHOICES = [
+        ('critical', 'Crítica'),
+        ('high', 'Alta'),
+        ('medium', 'Media'),
+        ('low', 'Baja'),
+        ('info', 'Informativa'),
+    ]
+    STATUS_CHOICES = [
+        ('open', 'Abierta'),
+        ('in_progress', 'En progreso'),
+        ('resolved', 'Resuelta'),
+        ('false_positive', 'Falso positivo'),
+    ]
+
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='vulnerabilities')
+    asset = models.ForeignKey(
+        'ITAsset', on_delete=models.SET_NULL, null=True, blank=True, related_name='vulnerabilities'
+    )
+    linked_risk = models.ForeignKey(
+        Risk, on_delete=models.SET_NULL, null=True, blank=True, related_name='vulnerabilities'
+    )
+    title = models.CharField(max_length=300)
+    description = models.TextField()
+    cve_id = models.CharField(max_length=30, blank=True)
+    severity = models.CharField(max_length=20, choices=SEVERITY_CHOICES)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open')
+    cvss_score = models.FloatField(
+        null=True, blank=True, validators=[MinValueValidator(0), MaxValueValidator(10)]
+    )
+    remediation_notes = models.TextField(blank=True)
+    discovery_date = models.DateField(default=timezone.now)
+    resolved_date = models.DateField(null=True, blank=True)
+    due_date = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-discovery_date']
+
+    def __str__(self):
+        cve = f" ({self.cve_id})" if self.cve_id else ""
+        return f"[{self.severity.upper()}]{cve} {self.title}"
 
 
 class UsageMetrics(models.Model):

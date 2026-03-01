@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'waf',       # Web Application Firewall
     'sandbox',   # Malware Sandbox Analysis
     'training',  # ML Training Engine (PCAP / CSV)
+    'risk',      # Gestión de Riesgos TI — ISO 27005
 ]
 
 MIDDLEWARE = [

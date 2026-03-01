@@ -1,0 +1,866 @@
+{% extends 'dashboard/base_dashboard.html' %}
+{% block title %}Riesgos TI — Jorise{% endblock %}
+{% block page_title %}Gestión de Riesgos TI{% endblock %}
+{% block page_subtitle %}Registro de riesgos, activos e inventario de vulnerabilidades — ISO 27005{% endblock %}
+
+{% block dashboard_content %}
+<!-- ========== STATS ========== -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6" id="stats-grid">
+  <div class="glass-card p-5">
+    <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Riesgos totales</p>
+    <p class="text-3xl font-bold text-white" id="stat-total">—</p>
+    <p class="text-xs text-gray-500 mt-1" id="stat-open-lbl">— abiertos</p>
+  </div>
+  <div class="glass-card p-5">
+    <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Críticos / Altos</p>
+    <p class="text-3xl font-bold text-red-400" id="stat-crit">—</p>
+    <p class="text-xs text-gray-500 mt-1" id="stat-high-lbl">— altos</p>
+  </div>
+  <div class="glass-card p-5">
+    <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Activos TI</p>
+    <p class="text-3xl font-bold text-blue-400" id="stat-assets">—</p>
+    <p class="text-xs text-gray-500 mt-1" id="stat-assets-crit">— críticos</p>
+  </div>
+  <div class="glass-card p-5">
+    <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Vulnerabilidades</p>
+    <p class="text-3xl font-bold text-orange-400" id="stat-vulns">—</p>
+    <p class="text-xs text-gray-500 mt-1" id="stat-vulns-crit">— críticas abiertas</p>
+  </div>
+</div>
+
+<!-- ========== TABS ========== -->
+<div class="flex gap-2 mb-5 border-b border-white/10 pb-0">
+  <button onclick="switchTab('risks')"   id="tab-risks"   class="tab-btn px-5 py-2 text-sm font-medium rounded-t-lg border-b-2 border-transparent text-gray-400 hover:text-white transition">📋 Riesgos</button>
+  <button onclick="switchTab('matrix')"  id="tab-matrix"  class="tab-btn px-5 py-2 text-sm font-medium rounded-t-lg border-b-2 border-transparent text-gray-400 hover:text-white transition">🔢 Matriz</button>
+  <button onclick="switchTab('assets')"  id="tab-assets"  class="tab-btn px-5 py-2 text-sm font-medium rounded-t-lg border-b-2 border-transparent text-gray-400 hover:text-white transition">🖥️ Activos</button>
+  <button onclick="switchTab('vulns')"   id="tab-vulns"   class="tab-btn px-5 py-2 text-sm font-medium rounded-t-lg border-b-2 border-transparent text-gray-400 hover:text-white transition">🐛 Vulnerabilidades</button>
+</div>
+
+<!-- ========== PANEL: RIESGOS ========== -->
+<div id="panel-risks" class="tab-panel">
+  <div class="glass-card p-5">
+    <div class="flex flex-wrap items-center gap-3 mb-4">
+      <h3 class="text-sm font-semibold text-gray-300 flex-1">Registro de Riesgos</h3>
+      <select id="filter-status" onchange="loadRisks()" class="bg-white/5 border border-white/10 text-gray-300 text-xs rounded-lg px-3 py-2">
+        <option value="">Todos los estados</option>
+        <option value="open">Abierto</option>
+        <option value="in_treatment">En tratamiento</option>
+        <option value="mitigated">Mitigado</option>
+        <option value="accepted">Aceptado</option>
+        <option value="closed">Cerrado</option>
+      </select>
+      <select id="filter-level" onchange="loadRisks()" class="bg-white/5 border border-white/10 text-gray-300 text-xs rounded-lg px-3 py-2">
+        <option value="">Todos los niveles</option>
+        <option value="critical">Crítico</option>
+        <option value="high">Alto</option>
+        <option value="medium">Medio</option>
+        <option value="low">Bajo</option>
+      </select>
+      <select id="filter-category" onchange="loadRisks()" class="bg-white/5 border border-white/10 text-gray-300 text-xs rounded-lg px-3 py-2">
+        <option value="">Todas las categorías</option>
+        <option value="cybersecurity">Ciberseguridad</option>
+        <option value="operational">Operacional</option>
+        <option value="compliance">Cumplimiento</option>
+        <option value="data">Datos</option>
+        <option value="infrastructure">Infraestructura</option>
+        <option value="third_party">Terceros</option>
+        <option value="people">Personas</option>
+        <option value="financial">Financiero</option>
+      </select>
+      <button onclick="openModal('modal-create-risk')" class="px-4 py-2 bg-primary/20 text-primary border border-primary/30 rounded-lg text-xs font-medium hover:bg-primary/30 transition">
+        + Nuevo riesgo
+      </button>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-xs">
+        <thead>
+          <tr class="border-b border-white/10 text-gray-400 uppercase tracking-wider">
+            <th class="text-left pb-3 pr-4">Riesgo</th>
+            <th class="text-left pb-3 pr-4">Categoría</th>
+            <th class="text-center pb-3 pr-4">P × I</th>
+            <th class="text-center pb-3 pr-4">Nivel</th>
+            <th class="text-center pb-3 pr-4">Estado</th>
+            <th class="text-left pb-3 pr-4">Responsable</th>
+            <th class="text-left pb-3 pr-4">Vencimiento</th>
+            <th class="text-center pb-3">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="risks-tbody">
+          <tr><td colspan="8" class="text-center text-gray-500 py-8">Cargando riesgos...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ========== PANEL: MATRIZ DE RIESGO ========== -->
+<div id="panel-matrix" class="tab-panel hidden">
+  <div class="glass-card p-6">
+    <h3 class="text-sm font-semibold text-gray-300 mb-6">Matriz de Riesgo 5×5</h3>
+    <div class="flex gap-8 flex-wrap">
+      <!-- Matrix grid -->
+      <div>
+        <div class="flex items-end gap-1 mb-1">
+          <div class="w-20 text-right text-xs text-gray-400 pr-2">Probabilidad ↑</div>
+          <div class="w-12 text-center text-xs text-gray-400">1</div>
+          <div class="w-12 text-center text-xs text-gray-400">2</div>
+          <div class="w-12 text-center text-xs text-gray-400">3</div>
+          <div class="w-12 text-center text-xs text-gray-400">4</div>
+          <div class="w-12 text-center text-xs text-gray-400">5</div>
+        </div>
+        <div id="risk-matrix-grid">
+          <!-- Built by JS -->
+        </div>
+        <div class="flex mt-1" style="margin-left:88px;">
+          <div class="w-12 text-center text-xs text-gray-400">1</div>
+          <div class="w-12 text-center text-xs text-gray-400">2</div>
+          <div class="w-12 text-center text-xs text-gray-400">3</div>
+          <div class="w-12 text-center text-xs text-gray-400">4</div>
+          <div class="w-12 text-center text-xs text-gray-400">5</div>
+        </div>
+        <p class="text-xs text-gray-500 mt-1 ml-20">Impacto →</p>
+      </div>
+      <!-- Legend + category chart -->
+      <div class="flex-1 min-w-48">
+        <h4 class="text-xs font-medium text-gray-400 mb-3 uppercase">Leyenda</h4>
+        <div class="flex flex-col gap-2 mb-6">
+          <div class="flex items-center gap-2"><div class="w-4 h-4 rounded" style="background:#ef4444"></div><span class="text-xs text-gray-300">Crítico (15–25)</span></div>
+          <div class="flex items-center gap-2"><div class="w-4 h-4 rounded" style="background:#f97316"></div><span class="text-xs text-gray-300">Alto (10–14)</span></div>
+          <div class="flex items-center gap-2"><div class="w-4 h-4 rounded" style="background:#eab308"></div><span class="text-xs text-gray-300">Medio (5–9)</span></div>
+          <div class="flex items-center gap-2"><div class="w-4 h-4 rounded" style="background:#22c55e"></div><span class="text-xs text-gray-300">Bajo (1–4)</span></div>
+        </div>
+        <h4 class="text-xs font-medium text-gray-400 mb-3 uppercase">Por categoría</h4>
+        <div id="category-bars"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== PANEL: ACTIVOS ========== -->
+<div id="panel-assets" class="tab-panel hidden">
+  <div class="glass-card p-5">
+    <div class="flex items-center gap-3 mb-4">
+      <h3 class="text-sm font-semibold text-gray-300 flex-1">Inventario de Activos TI</h3>
+      <button onclick="openModal('modal-create-asset')" class="px-4 py-2 bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-lg text-xs font-medium hover:bg-blue-500/30 transition">
+        + Nuevo activo
+      </button>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-xs">
+        <thead>
+          <tr class="border-b border-white/10 text-gray-400 uppercase tracking-wider">
+            <th class="text-left pb-3 pr-4">Activo</th>
+            <th class="text-left pb-3 pr-4">Tipo</th>
+            <th class="text-center pb-3 pr-4">Criticidad</th>
+            <th class="text-left pb-3 pr-4">Responsable</th>
+            <th class="text-left pb-3 pr-4">IP / Ubicación</th>
+            <th class="text-center pb-3 pr-4">Riesgos</th>
+            <th class="text-center pb-3 pr-4">Vulns</th>
+            <th class="text-center pb-3">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="assets-tbody">
+          <tr><td colspan="8" class="text-center text-gray-500 py-8">Cargando activos...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ========== PANEL: VULNERABILIDADES ========== -->
+<div id="panel-vulns" class="tab-panel hidden">
+  <div class="glass-card p-5">
+    <div class="flex flex-wrap items-center gap-3 mb-4">
+      <h3 class="text-sm font-semibold text-gray-300 flex-1">Vulnerabilidades</h3>
+      <select id="filter-vuln-status" onchange="loadVulns()" class="bg-white/5 border border-white/10 text-gray-300 text-xs rounded-lg px-3 py-2">
+        <option value="">Todos los estados</option>
+        <option value="open">Abierta</option>
+        <option value="in_progress">En progreso</option>
+        <option value="resolved">Resuelta</option>
+        <option value="false_positive">Falso positivo</option>
+      </select>
+      <button onclick="openModal('modal-create-vuln')" class="px-4 py-2 bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded-lg text-xs font-medium hover:bg-orange-500/30 transition">
+        + Nueva vulnerabilidad
+      </button>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-xs">
+        <thead>
+          <tr class="border-b border-white/10 text-gray-400 uppercase tracking-wider">
+            <th class="text-left pb-3 pr-4">Título</th>
+            <th class="text-left pb-3 pr-4">CVE</th>
+            <th class="text-center pb-3 pr-4">Severidad</th>
+            <th class="text-center pb-3 pr-4">CVSS</th>
+            <th class="text-center pb-3 pr-4">Estado</th>
+            <th class="text-left pb-3 pr-4">Activo</th>
+            <th class="text-left pb-3 pr-4">Riesgo vinculado</th>
+            <th class="text-left pb-3 pr-4">Descubrimiento</th>
+            <th class="text-center pb-3">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="vulns-tbody">
+          <tr><td colspan="9" class="text-center text-gray-500 py-8">Cargando vulnerabilidades...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+
+<!-- ============================================================
+     MODALES
+     ============================================================ -->
+
+<!-- Modal: Crear Riesgo -->
+<div id="modal-create-risk" class="fixed inset-0 bg-black/70 z-50 hidden flex items-center justify-center p-4">
+  <div class="glass-card w-full max-w-xl p-6 rounded-xl border border-white/10 overflow-y-auto max-h-screen">
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="font-semibold text-white">Nuevo Riesgo</h3>
+      <button onclick="closeModal('modal-create-risk')" class="text-gray-400 hover:text-white">✕</button>
+    </div>
+    <div class="grid grid-cols-2 gap-4">
+      <div class="col-span-2">
+        <label class="text-xs text-gray-400 block mb-1">Título *</label>
+        <input id="r-title" type="text" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" placeholder="Ej: Acceso no autorizado a base de datos">
+      </div>
+      <div class="col-span-2">
+        <label class="text-xs text-gray-400 block mb-1">Descripción</label>
+        <textarea id="r-desc" rows="2" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white resize-none"></textarea>
+      </div>
+      <div>
+        <label class="text-xs text-gray-400 block mb-1">Categoría *</label>
+        <select id="r-category" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
+          <option value="cybersecurity">Ciberseguridad</option>
+          <option value="operational">Operacional</option>
+          <option value="compliance">Cumplimiento normativo</option>
+          <option value="data">Datos e información</option>
+          <option value="infrastructure">Infraestructura</option>
+          <option value="third_party">Terceros / Proveedores</option>
+          <option value="people">Personas</option>
+          <option value="financial">Financiero</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-gray-400 block mb-1">Activo afectado</label>
+        <select id="r-asset" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
+          <option value="">— Sin activo —</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-gray-400 block mb-1">Probabilidad (1–5) *</label>
+        <select id="r-likelihood" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
+          <option value="1">1 — Muy baja</option>
+          <option value="2">2 — Baja</option>
+          <option value="3" selected>3 — Media</option>
+          <option value="4">4 — Alta</option>
+          <option value="5">5 — Muy alta</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-gray-400 block mb-1">Impacto (1–5) *</label>
+        <select id="r-impact" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
+          <option value="1">1 — Insignificante</option>
+          <option value="2">2 — Menor</option>
+          <option value="3" selected>3 — Moderado</option>
+          <option value="4">4 — Mayor</option>
+          <option value="5">5 — Catastrófico</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-gray-400 block mb-1">Tratamiento</label>
+        <select id="r-treatment" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
+          <option value="">— Sin definir —</option>
+          <option value="mitigate">Mitigar</option>
+          <option value="transfer">Transferir</option>
+          <option value="accept">Aceptar</option>
+          <option value="avoid">Evitar</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-gray-400 block mb-1">Estado</label>
+        <select id="r-status" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
+          <option value="open">Abierto</option>
+          <option value="in_treatment">En tratamiento</option>
+          <option value="mitigated">Mitigado</option>
+          <option value="accepted">Aceptado</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-gray-400 block mb-1">Responsable</label>
+        <input id="r-owner" type="text" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" placeholder="Nombre o email">
+      </div>
+      <div>
+        <label class="text-xs text-gray-400 block mb-1">Fecha límite</label>
+        <input id="r-due" type="date" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
+      </div>
+      <div class="col-span-2">
+        <label class="text-xs text-gray-400 block mb-1">Plan de tratamiento</label>
+        <textarea id="r-plan" rows="2" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white resize-none" placeholder="Describe las acciones a tomar..."></textarea>
+      </div>
+    </div>
+    <div id="create-risk-error" class="mt-3 text-red-400 text-xs hidden"></div>
+    <div class="flex justify-end gap-3 mt-5">
+      <button onclick="closeModal('modal-create-risk')" class="px-4 py-2 text-sm text-gray-400 hover:text-white transition">Cancelar</button>
+      <button onclick="submitCreateRisk()" class="px-5 py-2 bg-primary text-dark rounded-lg text-sm font-semibold hover:opacity-90 transition">Crear riesgo</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Crear Activo -->
+<div id="modal-create-asset" class="fixed inset-0 bg-black/70 z-50 hidden flex items-center justify-center p-4">
+  <div class="glass-card w-full max-w-lg p-6 rounded-xl border border-white/10">
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="font-semibold text-white">Nuevo Activo TI</h3>
+      <button onclick="closeModal('modal-create-asset')" class="text-gray-400 hover:text-white">✕</button>
+    </div>
+    <div class="grid grid-cols-2 gap-4">
+      <div class="col-span-2">
+        <label class="text-xs text-gray-400 block mb-1">Nombre *</label>
+        <input id="a-name" type="text" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" placeholder="Ej: Servidor de producción">
+      </div>
+      <div>
+        <label class="text-xs text-gray-400 block mb-1">Tipo *</label>
+        <select id="a-type" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
+          <option value="server">Servidor</option>
+          <option value="workstation">Estación de trabajo</option>
+          <option value="app">Aplicación</option>
+          <option value="database">Base de datos</option>
+          <option value="network">Equipo de red</option>
+          <option value="cloud">Servicio cloud</option>
+          <option value="mobile">Dispositivo móvil</option>
+          <option value="other">Otro</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-gray-400 block mb-1">Criticidad</label>
+        <select id="a-crit" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
+          <option value="critical">Crítico</option>
+          <option value="high">Alto</option>
+          <option value="medium" selected>Medio</option>
+          <option value="low">Bajo</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-gray-400 block mb-1">Responsable</label>
+        <input id="a-owner" type="text" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
+      </div>
+      <div>
+        <label class="text-xs text-gray-400 block mb-1">Dirección IP</label>
+        <input id="a-ip" type="text" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" placeholder="192.168.1.10">
+      </div>
+      <div class="col-span-2">
+        <label class="text-xs text-gray-400 block mb-1">Ubicación</label>
+        <input id="a-loc" type="text" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" placeholder="Ej: CPD Madrid, AWS us-east-1">
+      </div>
+      <div class="col-span-2">
+        <label class="text-xs text-gray-400 block mb-1">Descripción</label>
+        <textarea id="a-desc" rows="2" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white resize-none"></textarea>
+      </div>
+    </div>
+    <div id="create-asset-error" class="mt-3 text-red-400 text-xs hidden"></div>
+    <div class="flex justify-end gap-3 mt-5">
+      <button onclick="closeModal('modal-create-asset')" class="px-4 py-2 text-sm text-gray-400 hover:text-white transition">Cancelar</button>
+      <button onclick="submitCreateAsset()" class="px-5 py-2 bg-blue-500 text-white rounded-lg text-sm font-semibold hover:opacity-90 transition">Crear activo</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Crear Vulnerabilidad -->
+<div id="modal-create-vuln" class="fixed inset-0 bg-black/70 z-50 hidden flex items-center justify-center p-4">
+  <div class="glass-card w-full max-w-xl p-6 rounded-xl border border-white/10 overflow-y-auto max-h-screen">
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="font-semibold text-white">Nueva Vulnerabilidad</h3>
+      <button onclick="closeModal('modal-create-vuln')" class="text-gray-400 hover:text-white">✕</button>
+    </div>
+    <div class="grid grid-cols-2 gap-4">
+      <div class="col-span-2">
+        <label class="text-xs text-gray-400 block mb-1">Título *</label>
+        <input id="v-title" type="text" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" placeholder="Ej: SQL Injection en formulario de login">
+      </div>
+      <div>
+        <label class="text-xs text-gray-400 block mb-1">CVE ID</label>
+        <input id="v-cve" type="text" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" placeholder="CVE-2024-XXXXX">
+      </div>
+      <div>
+        <label class="text-xs text-gray-400 block mb-1">CVSS Score</label>
+        <input id="v-cvss" type="number" step="0.1" min="0" max="10" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" placeholder="0.0 – 10.0">
+      </div>
+      <div>
+        <label class="text-xs text-gray-400 block mb-1">Severidad *</label>
+        <select id="v-sev" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
+          <option value="critical">Crítica</option>
+          <option value="high">Alta</option>
+          <option value="medium" selected>Media</option>
+          <option value="low">Baja</option>
+          <option value="info">Informativa</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-gray-400 block mb-1">Estado</label>
+        <select id="v-status" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
+          <option value="open">Abierta</option>
+          <option value="in_progress">En progreso</option>
+          <option value="resolved">Resuelta</option>
+          <option value="false_positive">Falso positivo</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-gray-400 block mb-1">Activo afectado</label>
+        <select id="v-asset" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
+          <option value="">— Sin activo —</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-gray-400 block mb-1">Riesgo vinculado</label>
+        <select id="v-risk" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
+          <option value="">— Sin riesgo —</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-gray-400 block mb-1">Fecha descubrimiento</label>
+        <input id="v-disc" type="date" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
+      </div>
+      <div>
+        <label class="text-xs text-gray-400 block mb-1">Fecha límite</label>
+        <input id="v-due" type="date" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
+      </div>
+      <div class="col-span-2">
+        <label class="text-xs text-gray-400 block mb-1">Descripción</label>
+        <textarea id="v-desc" rows="2" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white resize-none"></textarea>
+      </div>
+      <div class="col-span-2">
+        <label class="text-xs text-gray-400 block mb-1">Notas de remediación</label>
+        <textarea id="v-rem" rows="2" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white resize-none"></textarea>
+      </div>
+    </div>
+    <div id="create-vuln-error" class="mt-3 text-red-400 text-xs hidden"></div>
+    <div class="flex justify-end gap-3 mt-5">
+      <button onclick="closeModal('modal-create-vuln')" class="px-4 py-2 text-sm text-gray-400 hover:text-white transition">Cancelar</button>
+      <button onclick="submitCreateVuln()" class="px-5 py-2 bg-orange-500 text-white rounded-lg text-sm font-semibold hover:opacity-90 transition">Crear vulnerabilidad</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Editar / Actualizar estado de riesgo -->
+<div id="modal-update-risk" class="fixed inset-0 bg-black/70 z-50 hidden flex items-center justify-center p-4">
+  <div class="glass-card w-full max-w-md p-6 rounded-xl border border-white/10">
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="font-semibold text-white">Actualizar Riesgo</h3>
+      <button onclick="closeModal('modal-update-risk')" class="text-gray-400 hover:text-white">✕</button>
+    </div>
+    <input type="hidden" id="ur-id">
+    <div class="space-y-3">
+      <div>
+        <label class="text-xs text-gray-400 block mb-1">Estado</label>
+        <select id="ur-status" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
+          <option value="open">Abierto</option>
+          <option value="in_treatment">En tratamiento</option>
+          <option value="mitigated">Mitigado</option>
+          <option value="accepted">Aceptado</option>
+          <option value="closed">Cerrado</option>
+        </select>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs text-gray-400 block mb-1">Probabilidad residual</label>
+          <select id="ur-res-l" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
+            <option value="">—</option>
+            <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-gray-400 block mb-1">Impacto residual</label>
+          <select id="ur-res-i" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
+            <option value="">—</option>
+            <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label class="text-xs text-gray-400 block mb-1">Notas de revisión</label>
+        <textarea id="ur-notes" rows="2" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white resize-none"></textarea>
+      </div>
+    </div>
+    <div class="flex justify-end gap-3 mt-5">
+      <button onclick="closeModal('modal-update-risk')" class="px-4 py-2 text-sm text-gray-400 hover:text-white transition">Cancelar</button>
+      <button onclick="submitUpdateRisk()" class="px-5 py-2 bg-primary text-dark rounded-lg text-sm font-semibold hover:opacity-90 transition">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<style>
+.tab-btn.active { color:#fff; border-bottom-color: var(--color-primary, #00d4ff); }
+</style>
+
+<script>
+// ─── Helpers ───────────────────────────────────────────────────────────────
+const CSRF = '{{ csrf_token }}';
+
+function openModal(id)  { document.getElementById(id).classList.remove('hidden'); }
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+function levelColor(level) {
+    const c = {critical:'#ef4444', high:'#f97316', medium:'#eab308', low:'#22c55e'};
+    return c[level] || '#6b7280';
+}
+function levelBadge(level, label) {
+    const bg = {critical:'bg-red-500/20 text-red-400', high:'bg-orange-500/20 text-orange-400', medium:'bg-yellow-500/20 text-yellow-400', low:'bg-green-500/20 text-green-400'};
+    return `<span class="px-2 py-0.5 rounded-full text-xs font-medium ${bg[level]||''}">${label||level}</span>`;
+}
+function statusBadge(status, label){
+    const bg = {open:'bg-blue-500/20 text-blue-400', in_treatment:'bg-purple-500/20 text-purple-400', mitigated:'bg-green-500/20 text-green-400', accepted:'bg-gray-500/20 text-gray-400', closed:'bg-gray-700/40 text-gray-500'};
+    return `<span class="px-2 py-0.5 rounded-full text-xs ${bg[status]||''}">${label||status}</span>`;
+}
+function sevBadge(sev, label){
+    const bg = {critical:'bg-red-500/20 text-red-400', high:'bg-orange-500/20 text-orange-400', medium:'bg-yellow-500/20 text-yellow-400', low:'bg-blue-500/20 text-blue-400', info:'bg-gray-500/20 text-gray-400'};
+    return `<span class="px-2 py-0.5 rounded-full text-xs font-medium ${bg[sev]||''}">${label||sev}</span>`;
+}
+function critBadge(c, label){
+    const bg = {critical:'text-red-400', high:'text-orange-400', medium:'text-yellow-400', low:'text-green-400'};
+    return `<span class="text-xs font-medium ${bg[c]||''}">${label||c}</span>`;
+}
+
+// ─── Tabs ───────────────────────────────────────────────────────────────────
+const TABS = ['risks','matrix','assets','vulns'];
+function switchTab(name) {
+    TABS.forEach(t => {
+        document.getElementById(`panel-${t}`).classList.toggle('hidden', t !== name);
+        document.getElementById(`tab-${t}`).classList.toggle('active', t === name);
+    });
+    if (name === 'assets') loadAssets();
+    if (name === 'vulns')  loadVulns();
+    if (name === 'matrix') renderMatrix();
+}
+
+// ─── Stats ─────────────────────────────────────────────────────────────────
+let _statsCache = null;
+function loadStats() {
+    fetch('/risk/api/stats/')
+        .then(r => r.json())
+        .then(d => {
+            if (!d.success) return;
+            const s = d.stats;
+            _statsCache = s;
+            document.getElementById('stat-total').textContent = s.total_risks;
+            document.getElementById('stat-open-lbl').textContent = `${s.open_risks} abiertos`;
+            document.getElementById('stat-crit').textContent = s.critical_risks;
+            document.getElementById('stat-high-lbl').textContent = `${s.high_risks} altos`;
+            document.getElementById('stat-assets').textContent = s.total_assets;
+            document.getElementById('stat-assets-crit').textContent = `${s.critical_assets} críticos`;
+            document.getElementById('stat-vulns').textContent = s.open_vulns;
+            document.getElementById('stat-vulns-crit').textContent = `${s.critical_vulns} críticas abiertas`;
+        }).catch(() => {});
+}
+
+// ─── Risk Matrix ────────────────────────────────────────────────────────────
+function renderMatrix() {
+    const grid = document.getElementById('risk-matrix-grid');
+    const matrix = (_statsCache && _statsCache.risk_matrix) || {};
+    let html = '';
+    for (let p = 5; p >= 1; p--) {
+        html += `<div class="flex items-center gap-1 mb-1">`;
+        html += `<div class="w-20 text-right text-xs text-gray-400 pr-2">${['','Muy baja','Baja','Media','Alta','Muy alta'][p]}</div>`;
+        for (let i = 1; i <= 5; i++) {
+            const score = p * i;
+            let bg = score >= 15 ? '#ef4444' : score >= 10 ? '#f97316' : score >= 5 ? '#eab308' : '#22c55e';
+            const cnt = matrix[`${p},${i}`] || 0;
+            html += `<div class="w-12 h-12 rounded flex items-center justify-center text-sm font-bold text-white cursor-default" style="background:${bg}22;border:1px solid ${bg}55;" title="P:${p} I:${i} Score:${score}">`;
+            if (cnt) html += `<span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style="background:${bg};color:#0a0e27">${cnt}</span>`;
+            else html += `<span class="text-gray-600 text-xs">${score}</span>`;
+            html += `</div>`;
+        }
+        html += '</div>';
+    }
+    grid.innerHTML = html;
+
+    // Category bars
+    const bars = document.getElementById('category-bars');
+    if (_statsCache && _statsCache.by_category) {
+        const entries = Object.entries(_statsCache.by_category).sort((a,b)=>b[1]-a[1]);
+        const max = Math.max(...entries.map(e=>e[1]), 1);
+        bars.innerHTML = entries.map(([label, cnt]) =>
+            `<div class="mb-2">
+               <div class="flex justify-between text-xs text-gray-400 mb-0.5"><span>${label}</span><span>${cnt}</span></div>
+               <div class="h-1.5 rounded-full bg-white/5"><div class="h-full rounded-full bg-primary" style="width:${Math.round(cnt/max*100)}%"></div></div>
+             </div>`
+        ).join('');
+    }
+}
+
+// ─── Risks ─────────────────────────────────────────────────────────────────
+function loadRisks() {
+    const status   = document.getElementById('filter-status').value;
+    const level    = document.getElementById('filter-level').value;
+    const category = document.getElementById('filter-category').value;
+    let url = '/risk/api/risks/?';
+    if (status)   url += `status=${status}&`;
+    if (level)    url += `level=${level}&`;
+    if (category) url += `category=${category}&`;
+
+    fetch(url)
+        .then(r => r.json())
+        .then(d => {
+            const tbody = document.getElementById('risks-tbody');
+            if (!d.success || !d.risks.length) {
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center text-gray-500 py-8">Sin riesgos registrados</td></tr>';
+                return;
+            }
+            tbody.innerHTML = d.risks.map(r => {
+                const lvl = r.risk_level;
+                const due = r.due_date ? `<span class="${isDue(r.due_date)?'text-red-400':''}">${r.due_date}</span>` : '—';
+                const res = r.residual_score ? `<span class="text-xs text-gray-400"> → ${r.residual_score}</span>` : '';
+                return `<tr class="border-b border-white/5 hover:bg-white/3 transition">
+                  <td class="py-3 pr-4">
+                    <div class="font-medium text-white text-xs line-clamp-1">${r.title}</div>
+                    <div class="text-gray-500 text-xs">${r.asset || ''}</div>
+                  </td>
+                  <td class="py-3 pr-4 text-gray-400">${r.category_label}</td>
+                  <td class="py-3 pr-4 text-center">
+                    <span class="font-bold" style="color:${levelColor(lvl)}">${r.risk_score}</span>${res}
+                    <div class="text-gray-600 text-xs">P${r.likelihood}×I${r.impact}</div>
+                  </td>
+                  <td class="py-3 pr-4 text-center">${levelBadge(lvl, lvl.charAt(0).toUpperCase()+lvl.slice(1))}</td>
+                  <td class="py-3 pr-4 text-center">${statusBadge(r.status, r.status_label)}</td>
+                  <td class="py-3 pr-4 text-gray-400">${r.owner || '—'}</td>
+                  <td class="py-3 pr-4">${due}</td>
+                  <td class="py-3 text-center">
+                    <button onclick="openUpdateRisk(${r.id},'${r.status}')" class="text-blue-400 hover:text-blue-300 mr-3 text-xs">Editar</button>
+                    <button onclick="deleteRisk(${r.id})" class="text-red-400 hover:text-red-300 text-xs">✕</button>
+                  </td>
+                </tr>`;
+            }).join('');
+        });
+}
+
+function isDue(dateStr) {
+    return dateStr && new Date(dateStr) < new Date();
+}
+
+function deleteRisk(id) {
+    if (!confirm('¿Eliminar este riesgo?')) return;
+    fetch(`/risk/api/risks/${id}/delete/`, {method:'POST', headers:{'X-CSRFToken':CSRF}})
+        .then(r => r.json()).then(() => { loadRisks(); loadStats(); });
+}
+
+function openUpdateRisk(id, currentStatus) {
+    document.getElementById('ur-id').value = id;
+    document.getElementById('ur-status').value = currentStatus;
+    document.getElementById('ur-res-l').value = '';
+    document.getElementById('ur-res-i').value = '';
+    document.getElementById('ur-notes').value = '';
+    openModal('modal-update-risk');
+}
+
+function submitUpdateRisk() {
+    const id = document.getElementById('ur-id').value;
+    const data = {
+        status: document.getElementById('ur-status').value,
+        residual_likelihood: document.getElementById('ur-res-l').value || null,
+        residual_impact: document.getElementById('ur-res-i').value || null,
+        review_notes: document.getElementById('ur-notes').value,
+    };
+    fetch(`/risk/api/risks/${id}/update/`, {
+        method:'POST',
+        headers:{'X-CSRFToken':CSRF,'Content-Type':'application/json'},
+        body: JSON.stringify(data)
+    }).then(r=>r.json()).then(d => {
+        if (d.success) { closeModal('modal-update-risk'); loadRisks(); loadStats(); }
+        else alert('Error: ' + d.error);
+    });
+}
+
+function submitCreateRisk() {
+    const err = document.getElementById('create-risk-error');
+    const title = document.getElementById('r-title').value.trim();
+    if (!title) { err.textContent='El título es obligatorio'; err.classList.remove('hidden'); return; }
+    err.classList.add('hidden');
+
+    const data = {
+        title,
+        description: document.getElementById('r-desc').value,
+        category: document.getElementById('r-category').value,
+        likelihood: document.getElementById('r-likelihood').value,
+        impact: document.getElementById('r-impact').value,
+        status: document.getElementById('r-status').value,
+        treatment_type: document.getElementById('r-treatment').value,
+        treatment_plan: document.getElementById('r-plan').value,
+        owner: document.getElementById('r-owner').value,
+        due_date: document.getElementById('r-due').value || null,
+        asset_id: document.getElementById('r-asset').value || null,
+    };
+    fetch('/risk/api/risks/create/', {
+        method:'POST',
+        headers:{'X-CSRFToken':CSRF,'Content-Type':'application/json'},
+        body: JSON.stringify(data)
+    }).then(r=>r.json()).then(d => {
+        if (d.success) { closeModal('modal-create-risk'); loadRisks(); loadStats(); }
+        else { err.textContent = d.error||'Error'; err.classList.remove('hidden'); }
+    });
+}
+
+// ─── Assets ─────────────────────────────────────────────────────────────────
+let _assetsCache = [];
+function loadAssets() {
+    fetch('/risk/api/assets/')
+        .then(r => r.json())
+        .then(d => {
+            _assetsCache = d.assets || [];
+            refreshAssetSelects();
+            const tbody = document.getElementById('assets-tbody');
+            if (!d.success || !d.assets.length) {
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center text-gray-500 py-8">Sin activos registrados</td></tr>';
+                return;
+            }
+            tbody.innerHTML = d.assets.map(a => `
+                <tr class="border-b border-white/5 hover:bg-white/3 transition">
+                  <td class="py-3 pr-4 font-medium text-white text-xs">${a.name}</td>
+                  <td class="py-3 pr-4 text-gray-400">${a.asset_type_label}</td>
+                  <td class="py-3 pr-4 text-center">${critBadge(a.criticality, a.criticality_label)}</td>
+                  <td class="py-3 pr-4 text-gray-400">${a.owner||'—'}</td>
+                  <td class="py-3 pr-4 text-gray-500 font-mono text-xs">${a.ip_address||''} ${a.location?'<br><span class="text-gray-600">'+a.location+'</span>':''}</td>
+                  <td class="py-3 pr-4 text-center"><span class="px-2 py-0.5 rounded-full text-xs ${a.risk_count>0?'bg-red-500/20 text-red-400':'bg-gray-500/20 text-gray-400'}">${a.risk_count}</span></td>
+                  <td class="py-3 pr-4 text-center"><span class="px-2 py-0.5 rounded-full text-xs ${a.vuln_count>0?'bg-orange-500/20 text-orange-400':'bg-gray-500/20 text-gray-400'}">${a.vuln_count}</span></td>
+                  <td class="py-3 text-center"><button onclick="deleteAsset(${a.id})" class="text-red-400 hover:text-red-300 text-xs">✕</button></td>
+                </tr>`).join('');
+        });
+}
+
+function refreshAssetSelects() {
+    const opts = ['<option value="">— Sin activo —</option>',
+        ..._assetsCache.map(a => `<option value="${a.id}">${a.name}</option>`)].join('');
+    document.getElementById('r-asset').innerHTML = opts;
+    document.getElementById('v-asset').innerHTML = opts;
+}
+
+function deleteAsset(id) {
+    if (!confirm('¿Eliminar activo? Se desvinculará de riesgos y vulnerabilidades.')) return;
+    fetch(`/risk/api/assets/${id}/delete/`, {method:'POST', headers:{'X-CSRFToken':CSRF}})
+        .then(r=>r.json()).then(() => { loadAssets(); loadStats(); });
+}
+
+function submitCreateAsset() {
+    const err = document.getElementById('create-asset-error');
+    const name = document.getElementById('a-name').value.trim();
+    if (!name) { err.textContent='El nombre es obligatorio'; err.classList.remove('hidden'); return; }
+    err.classList.add('hidden');
+    const data = {
+        name,
+        asset_type: document.getElementById('a-type').value,
+        criticality: document.getElementById('a-crit').value,
+        owner: document.getElementById('a-owner').value,
+        ip_address: document.getElementById('a-ip').value,
+        location: document.getElementById('a-loc').value,
+        description: document.getElementById('a-desc').value,
+    };
+    fetch('/risk/api/assets/create/', {
+        method:'POST',
+        headers:{'X-CSRFToken':CSRF,'Content-Type':'application/json'},
+        body: JSON.stringify(data)
+    }).then(r=>r.json()).then(d => {
+        if (d.success) { closeModal('modal-create-asset'); loadAssets(); loadStats(); }
+        else { err.textContent = d.error||'Error'; err.classList.remove('hidden'); }
+    });
+}
+
+// ─── Vulnerabilities ────────────────────────────────────────────────────────
+let _risksCache = [];
+function loadVulns() {
+    const status = document.getElementById('filter-vuln-status').value;
+    let url = '/risk/api/vulns/';
+    if (status) url += `?status=${status}`;
+    
+    // Also fetch risks for the dropdown
+    fetch('/risk/api/risks/')
+        .then(r=>r.json())
+        .then(d => {
+            _risksCache = d.risks || [];
+            const opts = ['<option value="">— Sin riesgo —</option>',
+                ..._risksCache.map(r=>`<option value="${r.id}">${r.title.slice(0,60)}</option>`)].join('');
+            document.getElementById('v-risk').innerHTML = opts;
+        });
+
+    fetch(url)
+        .then(r=>r.json())
+        .then(d => {
+            const tbody = document.getElementById('vulns-tbody');
+            if (!d.success || !d.vulnerabilities.length) {
+                tbody.innerHTML = '<tr><td colspan="9" class="text-center text-gray-500 py-8">Sin vulnerabilidades registradas</td></tr>';
+                return;
+            }
+            tbody.innerHTML = d.vulnerabilities.map(v => `
+                <tr class="border-b border-white/5 hover:bg-white/3 transition">
+                  <td class="py-3 pr-4">
+                    <div class="font-medium text-white text-xs line-clamp-1">${v.title}</div>
+                    ${v.remediation_notes?`<div class="text-gray-500 text-xs line-clamp-1">${v.remediation_notes}</div>`:''}
+                  </td>
+                  <td class="py-3 pr-4"><span class="text-blue-400 font-mono text-xs">${v.cve_id||'—'}</span></td>
+                  <td class="py-3 pr-4 text-center">${sevBadge(v.severity, v.severity_label)}</td>
+                  <td class="py-3 pr-4 text-center text-xs ${v.cvss_score>=9?'text-red-400':v.cvss_score>=7?'text-orange-400':v.cvss_score>=4?'text-yellow-400':'text-gray-400'}">${v.cvss_score??'—'}</td>
+                  <td class="py-3 pr-4 text-center">${statusBadge(v.status, v.status_label)}</td>
+                  <td class="py-3 pr-4 text-gray-400 text-xs">${v.asset||'—'}</td>
+                  <td class="py-3 pr-4 text-gray-500 text-xs line-clamp-1">${v.linked_risk||'—'}</td>
+                  <td class="py-3 pr-4 text-gray-500 text-xs">${v.discovery_date||'—'}</td>
+                  <td class="py-3 text-center">
+                    <button onclick="markVulnResolved(${v.id},'${v.status}')" class="text-green-400 hover:text-green-300 mr-2 text-xs" title="Marcar resuelta">✓</button>
+                    <button onclick="deleteVuln(${v.id})" class="text-red-400 hover:text-red-300 text-xs">✕</button>
+                  </td>
+                </tr>`).join('');
+        });
+}
+
+function markVulnResolved(id, currentStatus) {
+    const newStatus = currentStatus === 'resolved' ? 'open' : 'resolved';
+    fetch(`/risk/api/vulns/${id}/update/`, {
+        method:'POST',
+        headers:{'X-CSRFToken':CSRF,'Content-Type':'application/json'},
+        body: JSON.stringify({status: newStatus})
+    }).then(r=>r.json()).then(() => { loadVulns(); loadStats(); });
+}
+
+function deleteVuln(id) {
+    if (!confirm('¿Eliminar esta vulnerabilidad?')) return;
+    fetch(`/risk/api/vulns/${id}/delete/`, {method:'POST', headers:{'X-CSRFToken':CSRF}})
+        .then(r=>r.json()).then(() => { loadVulns(); loadStats(); });
+}
+
+function submitCreateVuln() {
+    const err = document.getElementById('create-vuln-error');
+    const title = document.getElementById('v-title').value.trim();
+    if (!title) { err.textContent='El título es obligatorio'; err.classList.remove('hidden'); return; }
+    err.classList.add('hidden');
+    const data = {
+        title,
+        description: document.getElementById('v-desc').value,
+        cve_id: document.getElementById('v-cve').value,
+        cvss_score: document.getElementById('v-cvss').value || null,
+        severity: document.getElementById('v-sev').value,
+        status: document.getElementById('v-status').value,
+        asset_id: document.getElementById('v-asset').value || null,
+        risk_id: document.getElementById('v-risk').value || null,
+        discovery_date: document.getElementById('v-disc').value || null,
+        due_date: document.getElementById('v-due').value || null,
+        remediation_notes: document.getElementById('v-rem').value,
+    };
+    fetch('/risk/api/vulns/create/', {
+        method:'POST',
+        headers:{'X-CSRFToken':CSRF,'Content-Type':'application/json'},
+        body: JSON.stringify(data)
+    }).then(r=>r.json()).then(d => {
+        if (d.success) { closeModal('modal-create-vuln'); loadVulns(); loadStats(); }
+        else { err.textContent = d.error||'Error'; err.classList.remove('hidden'); }
+    });
+}
+
+// ─── Init ───────────────────────────────────────────────────────────────────
+(function init() {
+    switchTab('risks');
+    loadStats();
+    loadRisks();
+    // Pre-load assets for selects
+    fetch('/risk/api/assets/')
+        .then(r=>r.json())
+        .then(d => { _assetsCache = d.assets||[]; refreshAssetSelects(); });
+    setInterval(loadStats, 60000);
+})();
+</script>
+{% endblock %}
