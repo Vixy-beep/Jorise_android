@@ -289,12 +289,25 @@ def edr_dashboard(request, org_id):
             timestamp__gte=cutoff
         ).select_related('agent').order_by('-timestamp')[:50]
         
+        # Count separately to avoid sliced queryset filter error
+        suspicious_count = EDRProcess.objects.filter(
+            agent__organization=organization,
+            is_suspicious=True,
+            timestamp__gte=cutoff
+        ).count()
+        blocked_count = EDRProcess.objects.filter(
+            agent__organization=organization,
+            is_suspicious=True,
+            blocked=True,
+            timestamp__gte=cutoff
+        ).count()
+        
         stats = {
             'total_agents': agents.count(),
             'online_agents': agents.filter(status='online').count(),
             'offline_agents': agents.filter(status='offline').count(),
-            'suspicious_processes_24h': suspicious_processes.count(),
-            'blocked_processes_24h': suspicious_processes.filter(blocked=True).count(),
+            'suspicious_processes_24h': suspicious_count,
+            'blocked_processes_24h': blocked_count,
             
             'agents': [{
                 'id': str(a.agent_id),
