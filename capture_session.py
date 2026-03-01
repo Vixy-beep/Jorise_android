@@ -1,39 +1,56 @@
 """
-Jorise — Capture Session
+Jorise — Capture Session (v2 MLOps)
+====================================
 Captura tráfico de red en vivo, extrae features y guarda CSV etiquetado
-listo para reentrenar el modelo.
+con metadatos completos de trazabilidad.
 
-El ciclo completo:
-  1. Captura N segundos de tráfico en la interfaz indicada (tshark o tcpdump)
-  2. Convierte el .pcap a flujos con features universales (pcap_extractor)
-  3. Asigna la etiqueta que el operador indica (BENIGN, DDoS, PortScan, ...)
-  4. Guarda CSV en media/training/datasets/jorise_lab/
-  5. Opcionalmente relanza el entrenamiento con la nueva data
+FLUJO CORRECTO (disciplina MLOps):
+  1. Captura múltiples sesiones con variedad (intensidad, herramienta, contexto)
+  2. Acumula suficiente dataset en jorise_lab/
+  3. Usa lab_pipeline.py para revisar balance → versionar → reentrenar → evaluar
+  4. Promueve el modelo solo si mejora el anterior
+
+⚠️  NO reentrenar automáticamente tras cada captura.
+    Eso genera drift caótico. Usa lab_pipeline.py retrain.
+
+Metadata registrada por sesión:
+  - timestamp, session_id, label
+  - intensity (low/medium/high/unknown)
+  - tool (nmap, hping3, slowloris, etc.)
+  - context (workday_normal, workday_peak, night_idle, night_loaded, custom)
+  - notes (texto libre del operador)
+  - n_flows, duration_s, interface, pcap_path
 
 Uso básico:
-    # Capturar tráfico normal (benign) por 5 minutos
-    .venv\\Scripts\\python.exe capture_session.py --label BENIGN --duration 300
+    # Tráfico normal en horario laboral (baseline)
+    python capture_session.py --label BENIGN --duration 300 \\
+        --context workday_normal --notes "after lunch, 3 users active"
 
-    # Capturar durante un ataque DDoS controlado
-    .venv\\Scripts\\python.exe capture_session.py --label DDoS --duration 60 --interface eth0
+    # DDoS controlado con hping3
+    python capture_session.py --label DDoS --duration 120 \\
+        --intensity high --tool hping3 --context workday_peak \\
+        --notes "hping3 -S --flood -V -p 80 target_ip"
 
-    # Ver interfaces disponibles
-    .venv\\Scripts\\python.exe capture_session.py --list-interfaces
+    # PortScan lento con nmap
+    python capture_session.py --label PortScan --duration 180 \\
+        --intensity low --tool nmap \\
+        --notes "nmap -sS -T2 target_ip"
 
-    # Después de varias capturas, reentrenar con la data propia:
-    .venv\\Scripts\\python.exe train_multisource.py --sources cicids2017 unsw jorise_lab --cross-eval
+    # Procesar PCAP existente
+    python capture_session.py --label BruteForce --pcap mi_captura.pcap \\
+        --tool hydra --intensity medium
+
+    # Ver estado del dataset acumulado
+    python lab_pipeline.py status
+
+    # Ver interfaces
+    python capture_session.py --list-interfaces
 
 Requisitos:
-    - tshark (parte de Wireshark) o tcpdump instalado y en PATH
+    - tshark (Wireshark) o tcpdump en PATH
     - dpkt o scapy en el venv (ya instalados)
-
-Instalación tshark:
-    Windows: instalar Wireshark desde https://www.wireshark.org/download.html
-             (marcar la opción "TShark" durante la instalación)
-    Linux:   sudo apt install tshark
-    VPS:     sudo apt install tshark -y
 """
-import django, os, sys, argparse, subprocess, time, shutil, tempfile, json
+import django, os, sys, argparse, subprocess, time, shutil, json
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'jorise.settings')
 django.setup()
 
@@ -50,9 +67,20 @@ from training.dataset_adapters import CANONICAL_LABELS
 
 MEDIA      = settings.MEDIA_ROOT
 LAB_DIR    = os.path.join(MEDIA, 'training/datasets/jorise_lab')
-PCAP_DIR   = os.path.join(MEDIA, 'training/captures')   # temp storage para .pcap
+PCAP_DIR   = os.path.join(MEDIA, 'training/captures')
+MANIFEST   = os.path.join(LAB_DIR, 'manifest.jsonl')   # una línea JSON por sesión
 
 VALID_LABELS = sorted(set(CANONICAL_LABELS.values()) - {'Other'})
+
+VALID_CONTEXTS = [
+    'workday_normal',   # horario laboral, carga normal
+    'workday_peak',     # horario laboral, carga alta
+    'night_idle',       # nocturno, servidor en reposo
+    'night_loaded',     # nocturno con background jobs
+    'custom',           # describir en --notes
+]
+
+VALID_INTENSITIES = ['low', 'medium', 'high', 'unknown']
 
 # Features universales que produce pcap_extractor y necesita el modelo
 UNIVERSAL_COLS = [
@@ -241,12 +269,64 @@ def save_to_lab(df: pd.DataFrame, label: str, session_id: str) -> str:
     return path
 
 
-def save_session_meta(session_id: str, meta: dict):
-    """Guarda metadatos de la sesión en JSON."""
+def append_to_manifest(meta: dict):
+    """
+    Agrega los metadatos de la sesión al manifest.jsonl (una línea por sesión).
+    Este archivo es la fuente de verdad del dataset incremental.
+    """
     os.makedirs(LAB_DIR, exist_ok=True)
-    meta_path = os.path.join(LAB_DIR, f'session_{session_id}.json')
-    with open(meta_path, 'w') as f:
-        json.dump(meta, f, indent=2)
+    with open(MANIFEST, 'a', encoding='utf-8') as f:
+        f.write(json.dumps(meta, ensure_ascii=False) + '\n')
+
+
+def load_manifest() -> list[dict]:
+    """Carga todas las sesiones del manifest."""
+    if not os.path.exists(MANIFEST):
+        return []
+    sessions = []
+    with open(MANIFEST, encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                try:
+                    sessions.append(json.loads(line))
+                except json.JSONDecodeError:
+                    pass
+    return sessions
+
+
+def print_lab_status(sessions: list[dict], lab_dir: str):
+    """Imprime resumen del estado actual del lab."""
+    csv_files = [f for f in os.listdir(lab_dir) if f.endswith('.csv')] if os.path.isdir(lab_dir) else []
+    total_rows = 0
+    dist: dict[str, int] = {}
+    for fn in csv_files:
+        try:
+            tmp = pd.read_csv(os.path.join(lab_dir, fn), usecols=['Label'])
+            for lbl, cnt in tmp['Label'].value_counts().items():
+                dist[lbl] = dist.get(lbl, 0) + int(cnt)
+                total_rows += int(cnt)
+        except Exception:
+            pass
+
+    print(f"\n  jorise_lab/ — {len(csv_files)} archivos · {total_rows:,} flujos · {len(sessions)} sesiones")
+    if dist:
+        max_count = max(dist.values())
+        for lbl, cnt in sorted(dist.items(), key=lambda x: -x[1]):
+            pct = cnt / max(total_rows, 1) * 100
+            bar = '█' * int(pct / 4)
+            flag = ' ⚠ desbalanceado' if cnt < max_count * 0.1 else ''
+            print(f"    {lbl:<16} {cnt:>7,}  ({pct:5.1f}%) {bar}{flag}")
+
+    if total_rows > 0:
+        majority_pct = max(dist.values()) / total_rows * 100
+        if majority_pct > 85:
+            print(f"\n  ⚠  ALERTA: clase mayoritaria ocupa {majority_pct:.0f}% del dataset.")
+            print(f"     Captura más sesiones de clases minoritarias antes de reentrenar.")
+        elif len(sessions) < 5:
+            print(f"\n  INFO: solo {len(sessions)} sesión(es). Acumula al menos 5-10 antes de reentrenar.")
+        else:
+            print(f"\n  ✓ Dataset con {len(sessions)} sesiones. Usa lab_pipeline.py retrain para evaluar.")
 
 
 def print_header(title: str):
@@ -257,23 +337,45 @@ def print_header(title: str):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Jorise Capture Session — captura y etiqueta tráfico de red'
+        description='Jorise Capture Session v2 — captura, etiqueta y registra tráfico con trazabilidad completa',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Flujo MLOps correcto:\n"
+            "  1. Captura múltiples sesiones con variedad\n"
+            "  2. python lab_pipeline.py status    # revisar balance\n"
+            "  3. python lab_pipeline.py version   # snapshot antes de entrenar\n"
+            "  4. python lab_pipeline.py retrain   # entrenar + evaluar\n"
+            "  5. python lab_pipeline.py promote   # promover si mejora\n"
+        )
     )
-    parser.add_argument('--interface', '-i', default='eth0',
-                        help='Interfaz de red (default: eth0). Windows: usa el nombre de tshark -D')
-    parser.add_argument('--duration', '-d', type=int, default=120,
-                        help='Duración de captura en segundos (default: 120)')
+
+    # ── Tráfico ─────────────────────────────────────────────────────────────
     parser.add_argument('--label', '-l', default='BENIGN',
                         choices=VALID_LABELS,
-                        help=f'Etiqueta de tráfico: {VALID_LABELS}')
+                        help=f'Etiqueta del tráfico: {VALID_LABELS}')
+    parser.add_argument('--interface', '-i', default='eth0',
+                        help='Interfaz de red. Windows: usar nombre de tshark -D (default: eth0)')
+    parser.add_argument('--duration', '-d', type=int, default=120,
+                        help='Duración en segundos (default: 120)')
     parser.add_argument('--pcap', default=None,
-                        help='Usar un .pcap existente en lugar de capturar')
+                        help='Procesar PCAP existente en lugar de capturar en vivo')
+
+    # ── Metadatos de trazabilidad ────────────────────────────────────────────
+    parser.add_argument('--intensity', default='unknown', choices=VALID_INTENSITIES,
+                        help='Intensidad del ataque/tráfico (default: unknown)')
+    parser.add_argument('--tool', default='unknown',
+                        help='Herramienta usada (nmap, hping3, hydra, metasploit, etc.)')
+    parser.add_argument('--context', default='workday_normal', choices=VALID_CONTEXTS,
+                        help='Contexto operacional de la captura (default: workday_normal)')
+    parser.add_argument('--notes', default='',
+                        help='Notas libres del operador: flags usados, variaciones, etc.')
+
+    # ── Opciones ──────────────────────────────────────────────────────────────
     parser.add_argument('--list-interfaces', action='store_true',
                         help='Listar interfaces disponibles y salir')
-    parser.add_argument('--retrain', action='store_true',
-                        help='Reentrenar modelo después de guardar (cicids2017 + unsw + jorise_lab)')
     parser.add_argument('--keep-pcap', action='store_true',
-                        help='No borrar el .pcap temporal después de extraer features')
+                        help='Conservar el .pcap después de extraer features')
+
     args = parser.parse_args()
 
     if args.list_interfaces:
@@ -283,14 +385,20 @@ def main():
     session_id = datetime.now().strftime('%Y%m%d_%H%M%S')
     t_start = time.time()
 
-    print_header(f"JORISE CAPTURE SESSION  [{session_id}]")
+    print_header(f"JORISE CAPTURE SESSION v2  [{session_id}]")
     print(f"  Interfaz  : {args.interface}")
     print(f"  Duración  : {args.duration}s")
     print(f"  Etiqueta  : {args.label}")
+    print(f"  Intensidad: {args.intensity}")
+    print(f"  Herramienta: {args.tool}")
+    print(f"  Contexto  : {args.context}")
+    if args.notes:
+        print(f"  Notas     : {args.notes}")
     print(f"  Destino   : {LAB_DIR}")
 
-    # ── Paso 1: Obtener PCAP ────────────────────────────────────────────────
+    # ── Paso 1: Obtener PCAP ─────────────────────────────────────────────────
     pcap_path = args.pcap
+    pcap_is_temp = False
 
     if pcap_path:
         if not os.path.exists(pcap_path):
@@ -302,9 +410,9 @@ def main():
     else:
         os.makedirs(PCAP_DIR, exist_ok=True)
         pcap_path = os.path.join(PCAP_DIR, f'capture_{session_id}.pcap')
+        pcap_is_temp = True
 
         print_header("Paso 1: Captura de tráfico")
-
         ok = capture_with_tshark(args.interface, args.duration, pcap_path)
         if not ok:
             ok = capture_with_tcpdump(args.interface, args.duration, pcap_path)
@@ -313,10 +421,10 @@ def main():
             print("  Instala Wireshark (Windows) o tshark (Linux):")
             print("    Windows: https://www.wireshark.org/download.html")
             print("    Linux:   sudo apt install tshark")
-            print("\n  Alternativa: captura manualmente con Wireshark y usa --pcap tu_archivo.pcap")
+            print("\n  Alternativa: captura con Wireshark y usa --pcap tu_archivo.pcap")
             sys.exit(1)
 
-    # ── Paso 2: Extraer features ────────────────────────────────────────────
+    # ── Paso 2: Extraer features ─────────────────────────────────────────────
     print_header("Paso 2: Extracción de features")
     df = pcap_to_universal_csv(pcap_path, args.label)
 
@@ -324,80 +432,72 @@ def main():
         print("\nERROR: no se obtuvieron flujos. Verifica que el PCAP tiene tráfico IP.")
         sys.exit(1)
 
-    # Estadísticas rápidas
-    n_total = len(df)
-    print(f"\n  Distribución de flujos:")
-    print(f"    {args.label:<20} {n_total:>8,}  (100.0%)")
-
-    # ── Paso 3: Guardar ─────────────────────────────────────────────────────
-    print_header("Paso 3: Guardar dataset")
+    # ── Paso 3: Guardar CSV + metadata ───────────────────────────────────────
+    print_header("Paso 3: Guardar dataset + metadata")
     csv_path = save_to_lab(df, args.label, session_id)
 
-    # Resumen del lab completo
-    lab_files = [f for f in os.listdir(LAB_DIR) if f.endswith('.csv')]
-    lab_rows  = 0
-    lab_dist  = {}
-    for fn in lab_files:
-        try:
-            tmp = pd.read_csv(os.path.join(LAB_DIR, fn), usecols=['Label'])
-            for lbl, cnt in tmp['Label'].value_counts().items():
-                lab_dist[lbl] = lab_dist.get(lbl, 0) + cnt
-                lab_rows += cnt
-        except Exception:
-            pass
-
-    print(f"\n  Estado actual de jorise_lab/:")
-    print(f"    Archivos : {len(lab_files)}")
-    print(f"    Total    : {lab_rows:,} filas")
-    for lbl, cnt in sorted(lab_dist.items(), key=lambda x: -x[1]):
-        pct = cnt / max(lab_rows, 1) * 100
-        bar = '█' * int(pct / 5)
-        print(f"    {lbl:<15} {cnt:>7,}  ({pct:.1f}%) {bar}")
-
-    # Guardar metadatos
     meta = {
         'session_id':  session_id,
+        'timestamp':   datetime.now().isoformat(),
+        # Tráfico
         'label':       args.label,
-        'interface':   args.interface,
-        'duration_s':  args.duration,
-        'n_flows':     n_total,
+        'n_flows':     int(len(df)),
+        'duration_s':  args.duration if not args.pcap else None,
+        'interface':   args.interface if not args.pcap else None,
+        # Trazabilidad
+        'intensity':   args.intensity,
+        'tool':        args.tool,
+        'context':     args.context,
+        'notes':       args.notes,
+        # Archivos
         'csv_path':    csv_path,
         'pcap_path':   pcap_path if args.keep_pcap else None,
-        'timestamp':   datetime.now().isoformat(),
+        # Timing
         'elapsed_s':   round(time.time() - t_start, 1),
     }
-    save_session_meta(session_id, meta)
+    append_to_manifest(meta)
+    print(f"  Metadata registrada en: {MANIFEST}")
 
-    # Limpiar PCAP temporal
-    if not args.keep_pcap and not args.pcap and os.path.exists(pcap_path):
+    # ── Paso 4: Estado del lab ───────────────────────────────────────────────
+    print_header("Estado del dataset jorise_lab")
+    sessions = load_manifest()
+    print_lab_status(sessions, LAB_DIR)
+
+    # ── Limpiar PCAP temporal ────────────────────────────────────────────────
+    if pcap_is_temp and not args.keep_pcap and os.path.exists(pcap_path):
         os.remove(pcap_path)
         print(f"\n  PCAP temporal eliminado (usa --keep-pcap para conservarlo)")
 
-    # ── Paso 4 (opcional): Reentrenar ───────────────────────────────────────
-    if args.retrain:
-        print_header("Paso 4: Reentrenamiento automático")
+    # ── Guía de próximos pasos ───────────────────────────────────────────────
+    print_header("Próximos pasos")
+    n_sess = len(sessions)
+    label_counts: dict[str, int] = {}
+    for s in sessions:
+        label_counts[s['label']] = label_counts.get(s['label'], 0) + s.get('n_flows', 0)
 
-        sources = ['cicids2017']
-        unsw_dir = os.path.join(MEDIA, 'training/datasets/unsw')
-        if os.path.isdir(unsw_dir) and any(f.endswith('.csv') for f in os.listdir(unsw_dir)):
-            sources.append('unsw')
-        sources.append('jorise_lab')
+    unique_labels = len(label_counts)
+    print(f"  Sesiones acumuladas  : {n_sess}")
+    print(f"  Etiquetas distintas  : {unique_labels}")
+    print()
 
-        print(f"  Fuentes: {sources}")
-        cmd = [
-            sys.executable, 'train_multisource.py',
-            '--sources', *sources,
-            '--algorithm', 'xgboost',
-            '--sample', '20000',
-            '--cross-eval',
-        ]
-        print(f"  Comando: {' '.join(cmd)}")
-        subprocess.run(cmd)
+    if n_sess < 3:
+        print(f"  ⏳ Muy pocas sesiones. Continúa capturando variedad:")
+        print(f"     - Distintos horarios (workday vs night)")
+        print(f"     - Distintas intensidades (low / medium / high)")
+        print(f"     - Distintas herramientas para el mismo tipo de ataque")
+    elif unique_labels < 3:
+        print(f"  ⚠  Pocas etiquetas distintas ({unique_labels}).")
+        print(f"     Agrega sesiones de otros tipos de ataque (DDoS, PortScan, BruteForce...)")
     else:
-        print_header("Listo")
-        print(f"  Para reentrenar con esta nueva data:")
-        print(f"  .venv\\Scripts\\python.exe train_multisource.py --sources cicids2017 unsw jorise_lab --cross-eval")
-        print(f"\n  O simplemente añade --retrain a la próxima captura.")
+        print(f"  ✓ Dataset creciendo bien.")
+        print(f"     Cuando tengas ≥10 sesiones y ≥3 etiquetas, ejecuta:")
+        print()
+        print(f"     python lab_pipeline.py status   # balance y alertas")
+        print(f"     python lab_pipeline.py version  # snapshot versional")
+        print(f"     python lab_pipeline.py retrain  # entrenar + evaluar")
+        print()
+        print(f"  ⚠  NO reentrenar con train_multisource.py directamente.")
+        print(f"     lab_pipeline.py lo hace con gate de evaluación automática.")
 
     elapsed = time.time() - t_start
     print(f"\n  Sesión completada en {elapsed:.0f}s\n")
