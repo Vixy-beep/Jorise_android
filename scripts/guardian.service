@@ -1,0 +1,26 @@
+[Unit]
+Description=Guardian — Context-Aware Pre-Authentication Layer API
+After=network.target
+
+[Service]
+Type=simple
+User=guardian
+Group=guardian
+WorkingDirectory=/opt/guardian
+EnvironmentFile=/opt/guardian/.env
+ExecStart=/opt/guardian/.venv/bin/uvicorn app.main:app \
+    --host 127.0.0.1 \
+    --port 8000 \
+    --workers 2 \
+    --log-level info
+Restart=on-failure
+RestartSec=5s
+
+# Seguridad
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/guardian
+
+[Install]
+WantedBy=multi-user.target

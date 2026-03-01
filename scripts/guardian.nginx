@@ -1,0 +1,38 @@
+# /etc/nginx/sites-available/guardian
+# Reverse proxy HTTP → uvicorn en 127.0.0.1:8000
+#
+# Para HTTPS con Let's Encrypt:
+#   sudo apt install certbot python3-certbot-nginx
+#   sudo certbot --nginx -d tu.dominio.com
+
+server {
+    listen 80;
+    server_name _;          # Reemplazar por dominio real si aplica
+
+    # Logs
+    access_log /var/log/nginx/guardian-access.log;
+    error_log  /var/log/nginx/guardian-error.log;
+
+    # Límite de tamaño de request (señales de contexto son pequeñas)
+    client_max_body_size 1M;
+
+    # Rate limiting — máx 30 requests/min por IP
+    limit_req_zone $binary_remote_addr zone=guardian:10m rate=30r/m;
+
+    location / {
+        limit_req zone=guardian burst=10 nodelay;
+
+        proxy_pass         http://127.0.0.1:8000;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_read_timeout 30s;
+    }
+
+    # Bloquear acceso directo a archivos sensibles
+    location ~ /\.env {
+        deny all;
+    }
+}
