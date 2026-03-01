@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-gray-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Jorise v2 Enterprise Security Suite{% endblock %}</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    {% load static %}
+    <link rel="stylesheet" type="text/css" href="{% static 'css/security-dashboard.css' %}">
+    
+    <!-- Tailwind Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'jorise': {
+                            'primary': '#1e3c72',
+                            'secondary': '#2a5298',
+                            'accent': '#667eea',
+                            'dark': '#1e293b'
+                        }
+                    },
+                    fontFamily: {
+                        'security': ['Inter', 'system-ui', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+
+</head>
+<body class="h-full font-security">
+    <div class="flex h-full bg-gray-50">
+        <!-- Advanced Sidebar -->
+        <div class="w-64 gradient-primary shadow-xl flex flex-col")
+            <div class="p-6">
+                <div class="text-white mb-8">
+                    <div class="flex items-center mb-2">
+                        <i class="fas fa-shield-virus text-2xl mr-3"></i>
+                        <span class="text-xl font-bold">Jorise v2</span>
+                    </div>
+                    <p class="text-blue-100 text-sm opacity-75">Enterprise Suite</p>
+                </div>
+                
+                <!-- Security Modules Navigation -->
+                <div class="mb-8">
+                    <h6 class="text-white opacity-75 text-xs uppercase tracking-wider mb-4 font-semibold">Security Modules</h6>
+                    <nav class="space-y-2">
+                        <a href="/" class="sidebar-link group">
+                            <i class="fas fa-tachometer-alt mr-3 group-hover:scale-110 transition-transform"></i>
+                            <span>Security Dashboard</span>
+                        </a>
+                        <a href="/scan/" class="sidebar-link group">
+                            <i class="fas fa-search mr-3 group-hover:scale-110 transition-transform"></i>
+                            <span>Advanced Scan</span>
+                        </a>
+                        <a href="/incidents/" class="sidebar-link group">
+                            <i class="fas fa-exclamation-triangle mr-3 group-hover:scale-110 transition-transform"></i>
+                            <span>Incident Response</span>
+                        </a>
+                        <a href="/compliance/" class="sidebar-link group">
+                            <i class="fas fa-clipboard-check mr-3 group-hover:scale-110 transition-transform"></i>
+                            <span>Compliance</span>
+                        </a>
+                    </nav>
+                </div>
+
+                <!-- Enterprise Modules -->
+                <div class="mb-8">
+                    <h6 class="text-white opacity-75 text-xs uppercase tracking-wider mb-4 font-semibold">Enterprise</h6>
+                    <nav class="space-y-2">
+                        <a href="#" class="sidebar-link-secondary group">
+                            <i class="fas fa-chart-line mr-3 group-hover:scale-110 transition-transform"></i>
+                            <span>SIEM</span>
+                        </a>
+                        <a href="#" class="sidebar-link-secondary group">
+                            <i class="fas fa-desktop mr-3 group-hover:scale-110 transition-transform"></i>
+                            <span>EDR</span>
+                        </a>
+                        <a href="#" class="sidebar-link-secondary group">
+                            <i class="fas fa-shield-alt mr-3 group-hover:scale-110 transition-transform"></i>
+                            <span>WAF</span>
+                        </a>
+                        <a href="#" class="sidebar-link-secondary group">
+                            <i class="fas fa-virus-slash mr-3 group-hover:scale-110 transition-transform"></i>
+                            <span>Antivirus</span>
+                        </a>
+                        <a href="#" class="sidebar-link-secondary group">
+                            <i class="fas fa-cube mr-3 group-hover:scale-110 transition-transform"></i>
+                            <span>Sandbox</span>
+                        </a>
+                    </nav>
+                </div>
+
+                <!-- System Status -->
+                <div class="mt-auto">
+                    <div class="bg-white bg-opacity-10 backdrop-blur-sm rounded-lg border border-white border-opacity-20 p-4">
+                        <div class="text-white text-sm font-medium mb-2">System Status</div>
+                        <div class="flex items-center">
+                            <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-3"></div>
+                            <div class="text-white text-sm opacity-90">All Systems Operational</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Main Content -->
+            <div class="flex-1 p-6 overflow-y-auto">
+                {% block content %}
+                {% endblock %}
+            </div>
+        </div>
+    
+    <script src="/static/js/security-dashboard.js"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

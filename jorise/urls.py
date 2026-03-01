@@ -29,6 +29,7 @@ urlpatterns = [
     path('edr/', include('edr.urls')),
     path('waf/', include('waf.urls')),
     path('sandbox/', include('sandbox.urls')),
+    path('reports/', include('reports.urls')),
     
     # API endpoints
     path('api/soc/<uuid:org_id>/', include('soc.urls')),

@@ -1,84 +1,102 @@
 {% extends 'dashboard/base_dashboard.html' %}
-{% load static %}
 
-{% block title %}EDR Dashboard - Jorise{% endblock %}
+{% block title %}EDR - Jorise{% endblock %}
+{% block page_title %}EDR{% endblock %}
+{% block page_subtitle %}Endpoint Detection & Response — Protección en tiempo real{% endblock %}
 
-{% block content %}
-<div class="container-fluid">
-    <div class="row mb-4">
-        <div class="col-12">
-            <h1 class="h3 mb-3"><i class="fas fa-desktop"></i> EDR Dashboard</h1>
-            <p class="text-muted">Endpoint Detection and Response - Real-time Protection</p>
+{% block dashboard_content %}
+{% if not organization.subscription.edr_enabled %}
+<div class="glass-card p-6 border border-yellow-500/30 bg-yellow-500/5">
+    <div class="flex items-center gap-3">
+        <span class="text-3xl">🔒</span>
+        <div>
+            <h3 class="font-semibold text-yellow-400">Módulo EDR no disponible</h3>
+            <p class="text-sm text-gray-400 mt-1">Requiere plan Pro o Enterprise para activarse.</p>
         </div>
+        <a href="{% url 'subscription_management' %}" class="ml-auto px-4 py-2 rounded-lg bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 transition text-sm font-medium">
+            Actualizar plan
+        </a>
     </div>
-
-    {% if not organization.subscription.edr_enabled %}
-    <div class="alert alert-warning">
-        <i class="fas fa-lock"></i> EDR module requires Pro or Enterprise plan.
-        <a href="{% url 'subscription_management' %}" class="alert-link">Upgrade now</a>
-    </div>
-    {% else %}
-
-    <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Active Endpoints</h5>
-                    <h2 id="active-endpoints">-</h2>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Threats Blocked</h5>
-                    <h2 id="threats-blocked">-</h2>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Suspicious Processes</h5>
-                    <h2 id="suspicious-processes">-</h2>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Offline Endpoints</h5>
-                    <h2 id="offline-endpoints">-</h2>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h5>Endpoint Status</h5>
-                </div>
-                <div class="card-body">
-                    <div id="endpoints-table">Loading...</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // Load EDR dashboard data via API
-        fetch('/api/soc/{{ organization.id }}/edr/dashboard/')
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('active-endpoints').textContent = data.active_endpoints || 0;
-                document.getElementById('threats-blocked').textContent = data.threats_blocked || 0;
-                document.getElementById('suspicious-processes').textContent = data.suspicious_processes || 0;
-                document.getElementById('offline-endpoints').textContent = data.offline_endpoints || 0;
-            })
-            .catch(error => console.error('Error loading EDR data:', error));
-    </script>
-    {% endif %}
 </div>
+{% else %}
+
+<!-- Stats -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="glass-card p-5">
+        <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Endpoints activos</p>
+        <p class="text-3xl font-bold text-green-400" id="active-endpoints">—</p>
+    </div>
+    <div class="glass-card p-5">
+        <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Amenazas bloqueadas</p>
+        <p class="text-3xl font-bold text-red-400" id="threats-blocked">—</p>
+    </div>
+    <div class="glass-card p-5">
+        <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Procesos sospechosos</p>
+        <p class="text-3xl font-bold text-yellow-400" id="suspicious-processes">—</p>
+    </div>
+    <div class="glass-card p-5">
+        <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Offline</p>
+        <p class="text-3xl font-bold text-gray-400" id="offline-endpoints">—</p>
+    </div>
+</div>
+
+<!-- Endpoint table -->
+<div class="glass-card p-6">
+    <div class="flex items-center justify-between mb-4">
+        <h3 class="font-semibold text-lg">Estado de endpoints</h3>
+        <span class="text-xs text-gray-400">Actualización cada 30s</span>
+    </div>
+    <div id="endpoints-table" class="text-gray-400 text-sm">Cargando…</div>
+</div>
+
+<script>
+(function () {
+    const orgId = '{{ organization.id }}';
+
+    function statusBadge(s) {
+        if (s === 'online') return '<span class="px-2 py-0.5 rounded bg-green-500/20 text-green-400">Online</span>';
+        if (s === 'offline') return '<span class="px-2 py-0.5 rounded bg-gray-500/20 text-gray-400">Offline</span>';
+        return '<span class="px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-400">' + (s || '—') + '</span>';
+    }
+
+    function renderTable(endpoints) {
+        if (!endpoints || endpoints.length === 0) return '<p class="text-gray-500">Sin endpoints registrados.</p>';
+        let html = '<div class="overflow-x-auto"><table class="w-full text-sm">';
+        html += '<thead><tr class="text-left text-gray-400 border-b border-white/10">';
+        html += '<th class="pb-2 pr-4">Nombre</th><th class="pb-2 pr-4">IP</th><th class="pb-2 pr-4">OS</th><th class="pb-2 pr-4">Último visto</th><th class="pb-2">Estado</th></tr></thead><tbody>';
+        endpoints.forEach(function (ep) {
+            html += '<tr class="border-b border-white/5 hover:bg-white/5">';
+            html += '<td class="py-2 pr-4 font-medium">' + (ep.hostname || '—') + '</td>';
+            html += '<td class="py-2 pr-4 text-gray-400">' + (ep.ip_address || '—') + '</td>';
+            html += '<td class="py-2 pr-4 text-gray-400">' + (ep.os || '—') + '</td>';
+            html += '<td class="py-2 pr-4 text-gray-400">' + (ep.last_seen || '—') + '</td>';
+            html += '<td class="py-2">' + statusBadge(ep.status) + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+        return html;
+    }
+
+    function loadData() {
+        fetch('/api/soc/' + orgId + '/edr/dashboard/')
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                document.getElementById('active-endpoints').textContent = data.active_endpoints ?? 0;
+                document.getElementById('threats-blocked').textContent = data.threats_blocked ?? 0;
+                document.getElementById('suspicious-processes').textContent = data.suspicious_processes ?? 0;
+                document.getElementById('offline-endpoints').textContent = data.offline_endpoints ?? 0;
+                if (data.endpoints) {
+                    document.getElementById('endpoints-table').innerHTML = renderTable(data.endpoints);
+                }
+            })
+            .catch(function (e) {
+                document.getElementById('endpoints-table').innerHTML = '<p class="text-red-400">Error al cargar datos EDR.</p>';
+                console.error('EDR error:', e);
+            });
+    }
+
+    loadData();
+    setInterval(loadData, 30000);
+})();
+</script>
+{% endif %}
 {% endblock %}

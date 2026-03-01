@@ -1,118 +1,133 @@
 {% extends 'dashboard/base_dashboard.html' %}
-{% load static %}
 
-{% block title %}Sandbox Dashboard - Jorise{% endblock %}
+{% block title %}Sandbox - Jorise{% endblock %}
+{% block page_title %}Sandbox{% endblock %}
+{% block page_subtitle %}Análisis de malware — Escaneo seguro de archivos{% endblock %}
 
-{% block content %}
-<div class="container-fluid">
-    <div class="row mb-4">
-        <div class="col-12">
-            <h1 class="h3 mb-3"><i class="fas fa-flask"></i> Sandbox Dashboard</h1>
-            <p class="text-muted">Malware Analysis - Secure File Scanning</p>
-        </div>
+{% block dashboard_content %}
+<!-- Stats -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="glass-card p-5">
+        <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Archivos analizados</p>
+        <p class="text-3xl font-bold text-white" id="files-analyzed">—</p>
     </div>
-
-    <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Files Analyzed</h5>
-                    <h2 id="files-analyzed">-</h2>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Malware Detected</h5>
-                    <h2 id="malware-detected">-</h2>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Clean Files</h5>
-                    <h2 id="clean-files">-</h2>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Pending Analysis</h5>
-                    <h2 id="pending-analysis">-</h2>
-                </div>
-            </div>
-        </div>
+    <div class="glass-card p-5">
+        <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Malware detectado</p>
+        <p class="text-3xl font-bold text-red-400" id="malware-detected">—</p>
     </div>
-
-    <div class="row mb-3">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h5>Upload File for Analysis</h5>
-                </div>
-                <div class="card-body">
-                    <form id="upload-form" enctype="multipart/form-data">
-                        {% csrf_token %}
-                        <div class="mb-3">
-                            <input type="file" class="form-control" id="file-input" name="file" required>
-                        </div>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-upload"></i> Submit for Analysis
-                        </button>
-                    </form>
-                </div>
-            </div>
-        </div>
+    <div class="glass-card p-5">
+        <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Archivos limpios</p>
+        <p class="text-3xl font-bold text-green-400" id="clean-files">—</p>
     </div>
-
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h5>Recent Analyses</h5>
-                </div>
-                <div class="card-body">
-                    <div id="analyses-table">Loading...</div>
-                </div>
-            </div>
-        </div>
+    <div class="glass-card p-5">
+        <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Pendientes</p>
+        <p class="text-3xl font-bold text-yellow-400" id="pending-analysis">—</p>
     </div>
+</div>
 
-    <script>
-        // Load Sandbox dashboard data via API
-        fetch('/api/soc/{{ organization.id }}/sandbox/dashboard/')
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('files-analyzed').textContent = data.files_analyzed || 0;
-                document.getElementById('malware-detected').textContent = data.malware_detected || 0;
-                document.getElementById('clean-files').textContent = data.clean_files || 0;
-                document.getElementById('pending-analysis').textContent = data.pending_analysis || 0;
-            })
-            .catch(error => console.error('Error loading Sandbox data:', error));
-        
-        // Handle file upload
-        document.getElementById('upload-form').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const formData = new FormData(this);
-            fetch('/api/soc/{{ organization.id }}/sandbox/submit/', {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+<!-- Upload Form -->
+<div class="glass-card p-6 mb-6">
+    <h3 class="font-semibold text-lg mb-4">Subir archivo para análisis</h3>
+    <form id="upload-form" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="flex items-center gap-4">
+            <label class="flex-1 flex items-center gap-3 px-4 py-3 rounded-lg border border-dashed border-white/20 hover:border-white/40 cursor-pointer bg-white/5 transition">
+                <span class="text-xl">📂</span>
+                <span class="text-sm text-gray-400" id="file-label">Seleccionar archivo…</span>
+                <input type="file" id="file-input" name="file" class="hidden" required>
+            </label>
+            <button type="submit" class="px-5 py-3 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-90 transition font-medium text-sm whitespace-nowrap">
+                🔍 Analizar
+            </button>
+        </div>
+        <div id="upload-status" class="mt-3 text-sm"></div>
+    </form>
+</div>
+
+<!-- Results table -->
+<div class="glass-card p-6">
+    <div class="flex items-center justify-between mb-4">
+        <h3 class="font-semibold text-lg">Análisis recientes</h3>
+        <span class="text-xs text-gray-400">Actualización cada 30s</span>
+    </div>
+    <div id="analyses-table" class="text-gray-400 text-sm">Cargando…</div>
+</div>
+
+<script>
+(function () {
+    const orgId = '{{ organization.id }}';
+
+    document.getElementById('file-input').addEventListener('change', function () {
+        document.getElementById('file-label').textContent = this.files[0] ? this.files[0].name : 'Seleccionar archivo…';
+    });
+
+    function verdictBadge(v) {
+        if (!v) return '<span class="text-gray-500">—</span>';
+        const lv = v.toLowerCase();
+        if (lv === 'clean') return '<span class="px-2 py-0.5 rounded bg-green-500/20 text-green-400">Limpio</span>';
+        if (lv === 'malicious' || lv === 'malware') return '<span class="px-2 py-0.5 rounded bg-red-500/20 text-red-400">Malware</span>';
+        if (lv === 'suspicious') return '<span class="px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-400">Sospechoso</span>';
+        if (lv === 'pending') return '<span class="px-2 py-0.5 rounded bg-blue-500/20 text-blue-400">Pendiente</span>';
+        return '<span class="px-2 py-0.5 rounded bg-gray-500/20 text-gray-400">' + v + '</span>';
+    }
+
+    function renderTable(analyses) {
+        if (!analyses || analyses.length === 0) return '<p class="text-gray-500">Sin análisis recientes.</p>';
+        let html = '<div class="overflow-x-auto"><table class="w-full text-sm">';
+        html += '<thead><tr class="text-left text-gray-400 border-b border-white/10">';
+        html += '<th class="pb-2 pr-4">Archivo</th><th class="pb-2 pr-4">Tamaño</th><th class="pb-2 pr-4">Enviado</th><th class="pb-2">Veredicto</th></tr></thead><tbody>';
+        analyses.forEach(function (a) {
+            const size = a.file_size ? (a.file_size / 1024).toFixed(1) + ' KB' : '—';
+            html += '<tr class="border-b border-white/5 hover:bg-white/5">';
+            html += '<td class="py-2 pr-4 font-medium">' + (a.filename || a.file_name || '—') + '</td>';
+            html += '<td class="py-2 pr-4 text-gray-400">' + size + '</td>';
+            html += '<td class="py-2 pr-4 text-gray-400">' + (a.submitted_at || a.created_at || '—') + '</td>';
+            html += '<td class="py-2">' + verdictBadge(a.verdict || a.status) + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+        return html;
+    }
+
+    function loadData() {
+        fetch('/api/soc/' + orgId + '/sandbox/dashboard/')
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                document.getElementById('files-analyzed').textContent = data.files_analyzed ?? 0;
+                document.getElementById('malware-detected').textContent = data.malware_detected ?? 0;
+                document.getElementById('clean-files').textContent = data.clean_files ?? 0;
+                document.getElementById('pending-analysis').textContent = data.pending_analysis ?? 0;
+                if (data.recent_analyses) {
+                    document.getElementById('analyses-table').innerHTML = renderTable(data.recent_analyses);
                 }
             })
-            .then(response => response.json())
-            .then(data => {
-                alert('File submitted successfully! Analysis ID: ' + data.analysis_id);
-                location.reload();
-            })
-            .catch(error => {
-                alert('Error submitting file: ' + error);
+            .catch(function (e) {
+                document.getElementById('analyses-table').innerHTML = '<p class="text-red-400">Error al cargar datos Sandbox.</p>';
+                console.error('Sandbox error:', e);
             });
+    }
+
+    loadData();
+    setInterval(loadData, 30000);
+
+    document.getElementById('upload-form').addEventListener('submit', function (e) {
+        e.preventDefault();
+        const status = document.getElementById('upload-status');
+        status.innerHTML = '<span class="text-blue-400">Enviando archivo…</span>';
+        const formData = new FormData(this);
+        fetch('/api/soc/' + orgId + '/sandbox/submit/', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            status.innerHTML = '<span class="text-green-400">✔ Archivo enviado. ID: ' + (data.analysis_id || '—') + '</span>';
+            setTimeout(loadData, 2000);
+        })
+        .catch(function () {
+            status.innerHTML = '<span class="text-red-400">Error al enviar el archivo.</span>';
         });
-    </script>
-</div>
+    });
+})();
+</script>
 {% endblock %}

@@ -41,6 +41,16 @@
                 <span>Sandbox</span>
             </a>
             
+            <a href="{% url 'reports_list' %}" class="nav-item {% if 'reports' in request.path %}active{% endif %} flex items-center gap-3 px-4 py-3 rounded-lg mb-1">
+                <span class="text-xl">📄</span>
+                <span>Reportes</span>
+            </a>
+            
+            <a href="{% url 'training:dashboard' %}" class="nav-item {% if 'training' in request.path %}active{% endif %} flex items-center gap-3 px-4 py-3 rounded-lg mb-1">
+                <span class="text-xl">🧠</span>
+                <span>Training</span>
+            </a>
+            
             <div class="border-t border-white/10 my-4"></div>
             
             <a href="{% url 'subscription_management' %}" class="nav-item flex items-center gap-3 px-4 py-3 rounded-lg mb-1">

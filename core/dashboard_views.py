@@ -26,7 +26,7 @@ def dashboard_view(request):
     stats = {
         'total_events': events.count(),
         'critical_alerts': events.filter(severity='critical').count(),
-        'blocked_attacks': events.filter(status='blocked').count(),
+        'blocked_attacks': events.filter(action_taken__isnull=False).count(),
         'threat_level': calculate_threat_level(organization),
         'siem': {},
         'edr': {},
@@ -41,7 +41,7 @@ def dashboard_view(request):
         )
         stats['siem'] = {
             'logs_analyzed': siem_logs.count(),
-            'anomalies': siem_logs.filter(anomaly_detected=True).count()
+            'anomalies': siem_logs.filter(threat_detected=True).count()
         }
     
     # EDR stats if enabled
@@ -49,7 +49,7 @@ def dashboard_view(request):
         edr_agents = EDRAgent.objects.filter(organization=organization)
         stats['edr'] = {
             'active_endpoints': edr_agents.filter(
-                status='active',
+                status='online',
                 last_seen__gte=now - timedelta(minutes=15)
             ).count(),
             'threats': events.filter(
@@ -66,14 +66,14 @@ def dashboard_view(request):
         )
         stats['waf'] = {
             'requests_analyzed': waf_logs.count(),
-            'blocked': waf_logs.filter(action='blocked').count()
+            'blocked': waf_logs.filter(blocked=True).count()
         }
     
     # Recent incidents (last 10)
     recent_incidents = []
     for event in events.order_by('-timestamp')[:10]:
         incident = {
-            'title': event.event_type.upper() + ' - ' + event.source,
+            'title': event.event_type.upper() + ' - ' + (event.source_ip or 'Unknown'),
             'description': event.description[:100],
             'severity': event.severity,
             'timestamp': event.timestamp,

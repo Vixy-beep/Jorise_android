@@ -1,84 +1,102 @@
 {% extends 'dashboard/base_dashboard.html' %}
-{% load static %}
 
-{% block title %}WAF Dashboard - Jorise{% endblock %}
+{% block title %}WAF - Jorise{% endblock %}
+{% block page_title %}WAF{% endblock %}
+{% block page_subtitle %}Web Application Firewall — Detección de ataques con IA{% endblock %}
 
-{% block content %}
-<div class="container-fluid">
-    <div class="row mb-4">
-        <div class="col-12">
-            <h1 class="h3 mb-3"><i class="fas fa-shield-alt"></i> WAF Dashboard</h1>
-            <p class="text-muted">Web Application Firewall - AI-Powered Attack Detection</p>
+{% block dashboard_content %}
+{% if not organization.subscription.waf_enabled %}
+<div class="glass-card p-6 border border-yellow-500/30 bg-yellow-500/5">
+    <div class="flex items-center gap-3">
+        <span class="text-3xl">🔒</span>
+        <div>
+            <h3 class="font-semibold text-yellow-400">Módulo WAF no disponible</h3>
+            <p class="text-sm text-gray-400 mt-1">Requiere plan Pro o Enterprise para activarse.</p>
         </div>
+        <a href="{% url 'subscription_management' %}" class="ml-auto px-4 py-2 rounded-lg bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 transition text-sm font-medium">
+            Actualizar plan
+        </a>
     </div>
-
-    {% if not organization.subscription.waf_enabled %}
-    <div class="alert alert-warning">
-        <i class="fas fa-lock"></i> WAF module requires Pro or Enterprise plan.
-        <a href="{% url 'subscription_management' %}" class="alert-link">Upgrade now</a>
-    </div>
-    {% else %}
-
-    <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Requests Analyzed</h5>
-                    <h2 id="requests-analyzed">-</h2>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Attacks Blocked</h5>
-                    <h2 id="attacks-blocked">-</h2>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Active Rules</h5>
-                    <h2 id="active-rules">-</h2>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Block Rate</h5>
-                    <h2 id="block-rate">-</h2>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h5>Recent Attacks</h5>
-                </div>
-                <div class="card-body">
-                    <div id="attacks-table">Loading...</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // Load WAF dashboard data via API
-        fetch('/api/soc/{{ organization.id }}/waf/dashboard/')
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('requests-analyzed').textContent = data.requests_analyzed || 0;
-                document.getElementById('attacks-blocked').textContent = data.attacks_blocked || 0;
-                document.getElementById('active-rules').textContent = data.active_rules || 0;
-                document.getElementById('block-rate').textContent = (data.block_rate || 0) + '%';
-            })
-            .catch(error => console.error('Error loading WAF data:', error));
-    </script>
-    {% endif %}
 </div>
+{% else %}
+
+<!-- Stats -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="glass-card p-5">
+        <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Requests analizados</p>
+        <p class="text-3xl font-bold text-white" id="requests-analyzed">—</p>
+    </div>
+    <div class="glass-card p-5">
+        <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Ataques bloqueados</p>
+        <p class="text-3xl font-bold text-red-400" id="attacks-blocked">—</p>
+    </div>
+    <div class="glass-card p-5">
+        <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Reglas activas</p>
+        <p class="text-3xl font-bold text-blue-400" id="active-rules">—</p>
+    </div>
+    <div class="glass-card p-5">
+        <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Tasa de bloqueo</p>
+        <p class="text-3xl font-bold text-green-400" id="block-rate">—</p>
+    </div>
+</div>
+
+<!-- Recent attacks -->
+<div class="glass-card p-6">
+    <div class="flex items-center justify-between mb-4">
+        <h3 class="font-semibold text-lg">Ataques recientes</h3>
+        <span class="text-xs text-gray-400">Actualización cada 30s</span>
+    </div>
+    <div id="attacks-table" class="text-gray-400 text-sm">Cargando…</div>
+</div>
+
+<script>
+(function () {
+    const orgId = '{{ organization.id }}';
+
+    function threatBadge(t) {
+        const map = { high: 'bg-red-500/20 text-red-400', medium: 'bg-yellow-500/20 text-yellow-400', low: 'bg-green-500/20 text-green-400' };
+        const cls = (t && map[t.toLowerCase()]) || 'bg-gray-500/20 text-gray-400';
+        return '<span class="px-2 py-0.5 rounded ' + cls + '">' + (t || '—') + '</span>';
+    }
+
+    function renderTable(attacks) {
+        if (!attacks || attacks.length === 0) return '<p class="text-gray-500">Sin ataques recientes.</p>';
+        let html = '<div class="overflow-x-auto"><table class="w-full text-sm">';
+        html += '<thead><tr class="text-left text-gray-400 border-b border-white/10">';
+        html += '<th class="pb-2 pr-4">Timestamp</th><th class="pb-2 pr-4">IP origen</th><th class="pb-2 pr-4">Tipo</th><th class="pb-2 pr-4">URL</th><th class="pb-2">Severidad</th></tr></thead><tbody>';
+        attacks.forEach(function (a) {
+            html += '<tr class="border-b border-white/5 hover:bg-white/5">';
+            html += '<td class="py-2 pr-4 text-gray-400">' + (a.timestamp || '—') + '</td>';
+            html += '<td class="py-2 pr-4">' + (a.source_ip || a.ip_address || '—') + '</td>';
+            html += '<td class="py-2 pr-4">' + (a.attack_type || '—') + '</td>';
+            html += '<td class="py-2 pr-4 max-w-xs truncate text-gray-400">' + (a.url || '—') + '</td>';
+            html += '<td class="py-2">' + threatBadge(a.severity) + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+        return html;
+    }
+
+    function loadData() {
+        fetch('/api/soc/' + orgId + '/waf/dashboard/')
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                document.getElementById('requests-analyzed').textContent = data.requests_analyzed ?? 0;
+                document.getElementById('attacks-blocked').textContent = data.attacks_blocked ?? 0;
+                document.getElementById('active-rules').textContent = data.active_rules ?? 0;
+                document.getElementById('block-rate').textContent = (data.block_rate ?? 0) + '%';
+                if (data.recent_attacks) {
+                    document.getElementById('attacks-table').innerHTML = renderTable(data.recent_attacks);
+                }
+            })
+            .catch(function (e) {
+                document.getElementById('attacks-table').innerHTML = '<p class="text-red-400">Error al cargar datos WAF.</p>';
+                console.error('WAF error:', e);
+            });
+    }
+
+    loadData();
+    setInterval(loadData, 30000);
+})();
+</script>
+{% endif %}
 {% endblock %}
