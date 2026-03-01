@@ -22,8 +22,10 @@ apt-get install -y -qq python3 python3-pip python3-venv git nginx supervisor \
 
 # ── 2. Usuarios ───────────────────────────────────────────────────────────────
 echo "[2/8] Configurando usuarios..."
-id -u "$JORISE_USER" &>/dev/null    || useradd -m -s /bin/bash "$JORISE_USER"
+id -u "$JORISE_USER" &>/dev/null   || useradd -m -s /bin/bash "$JORISE_USER"
+mkdir -p "/home/$JORISE_USER" && chown "$JORISE_USER:$JORISE_USER" "/home/$JORISE_USER"
 id -u "$GUARDIAN_USER" &>/dev/null  || useradd -m -s /bin/bash "$GUARDIAN_USER"
+mkdir -p "/home/$GUARDIAN_USER" && chown "$GUARDIAN_USER:$GUARDIAN_USER" "/home/$GUARDIAN_USER"
 
 # ── 3. Clonar / actualizar Jorise (branch main) ───────────────────────────────
 echo "[3/8] Descargando Jorise (main)..."
