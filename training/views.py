@@ -36,7 +36,7 @@ def training_dashboard(request):
     jobs     = TrainingJob.objects.filter(user=request.user).order_by('-created_at')[:10]
     models   = TrainedModel.objects.filter(job__user=request.user).order_by('-created_at')[:10]
 
-    running_jobs = jobs.filter(status__in=['pending', 'running']).count()
+    running_jobs = TrainingJob.objects.filter(user=request.user, status__in=['pending', 'running']).count()
 
     context = {
         'datasets':     datasets,

@@ -489,7 +489,7 @@ def siem_dashboard_view(request):
         'anomalies_24h': SIEMLog.objects.filter(
             organization=organization,
             timestamp__gte=last_24h,
-            anomaly_detected=True
+            threat_detected=True
         ).count(),
         'critical_events': SIEMLog.objects.filter(
             organization=organization,

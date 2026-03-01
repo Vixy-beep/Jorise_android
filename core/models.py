@@ -313,6 +313,7 @@ class WAFRule(models.Model):
         ('command_injection', 'Command Injection'),
         ('rate_limit', 'Rate Limiting'),
         ('geo_block', 'Geo Blocking'),
+        ('ip_block', 'IP Block'),
         ('custom', 'Custom Rule'),
     ]
     

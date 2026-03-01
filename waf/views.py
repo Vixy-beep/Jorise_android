@@ -217,8 +217,20 @@ def analyze_request(request, org_id):
         # Aplicar reglas personalizadas
         custom_rules, max_severity = WAFAnalyzer.apply_custom_rules(data, organization)
         
-        # Verificar rate limiting
+        # Verificar si la IP está bloqueada manualmente
         source_ip = data.get('source_ip')
+        ip_is_blocked = WAFRule.objects.filter(
+            organization=organization,
+            rule_type='ip_block',
+            pattern=source_ip,
+            is_enabled=True,
+        ).exists()
+        if ip_is_blocked:
+            analysis['action'] = 'block'
+            analysis['blocked'] = True
+            analysis['rules_triggered'].append('manual_ip_block')
+
+        # Verificar rate limiting
         is_rate_limited, request_count = WAFAnalyzer.detect_rate_limit(source_ip, organization)
         
         if is_rate_limited:
@@ -370,6 +382,141 @@ def create_rule(request, org_id):
         return JsonResponse({'error': str(e)}, status=500)
 
 
+@require_http_methods(["GET"])
+def list_rules(request, org_id):
+    """Lista todas las reglas WAF"""
+    try:
+        organization = Organization.objects.get(id=org_id)
+        rules = WAFRule.objects.filter(organization=organization).order_by('-created_at')
+        return JsonResponse({
+            'success': True,
+            'rules': [{
+                'id': r.id,
+                'name': r.name,
+                'rule_type': r.rule_type,
+                'severity': r.severity,
+                'action': r.action,
+                'is_enabled': r.is_enabled,
+                'times_triggered': r.times_triggered,
+                'last_triggered': r.last_triggered.isoformat() if r.last_triggered else None,
+                'is_ip_block': r.rule_type == 'ip_block',
+            } for r in rules]
+        })
+    except Organization.DoesNotExist:
+        return JsonResponse({'error': 'Organization not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@require_http_methods(["POST"])
+def toggle_rule(request, org_id, rule_id):
+    """Activa o desactiva una regla WAF"""
+    try:
+        organization = Organization.objects.get(id=org_id)
+        rule = WAFRule.objects.get(id=rule_id, organization=organization)
+        rule.is_enabled = not rule.is_enabled
+        rule.save()
+        return JsonResponse({'success': True, 'is_enabled': rule.is_enabled})
+    except (Organization.DoesNotExist, WAFRule.DoesNotExist):
+        return JsonResponse({'error': 'Not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@require_http_methods(["POST"])
+def delete_rule(request, org_id, rule_id):
+    """Elimina una regla WAF"""
+    try:
+        organization = Organization.objects.get(id=org_id)
+        rule = WAFRule.objects.get(id=rule_id, organization=organization)
+        rule.delete()
+        return JsonResponse({'success': True})
+    except (Organization.DoesNotExist, WAFRule.DoesNotExist):
+        return JsonResponse({'error': 'Not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@require_http_methods(["POST"])
+def block_ip(request, org_id):
+    """Bloquea una IP creando una regla WAF"""
+    try:
+        organization = Organization.objects.get(id=org_id)
+        data = json.loads(request.body)
+        ip = data.get('ip', '').strip()
+        reason = data.get('reason', 'Bloqueado manualmente')
+
+        if not ip:
+            return JsonResponse({'error': 'IP requerida'}, status=400)
+
+        # Evitar duplicados
+        if WAFRule.objects.filter(organization=organization, rule_type='ip_block', name=f'IP Block: {ip}').exists():
+            return JsonResponse({'error': 'IP ya bloqueada'}, status=400)
+
+        rule = WAFRule.objects.create(
+            organization=organization,
+            name=f'IP Block: {ip}',
+            description=reason,
+            rule_type='ip_block',
+            pattern=ip,
+            severity='high',
+            action='block',
+            is_enabled=True,
+        )
+        return JsonResponse({'success': True, 'rule_id': rule.id, 'ip': ip})
+    except Organization.DoesNotExist:
+        return JsonResponse({'error': 'Organization not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@require_http_methods(["POST"])
+def unblock_ip(request, org_id):
+    """Desbloquea una IP eliminando su regla WAF"""
+    try:
+        organization = Organization.objects.get(id=org_id)
+        data = json.loads(request.body)
+        ip = data.get('ip', '').strip()
+
+        deleted, _ = WAFRule.objects.filter(
+            organization=organization,
+            rule_type='ip_block',
+            name=f'IP Block: {ip}'
+        ).delete()
+        if deleted:
+            return JsonResponse({'success': True})
+        return JsonResponse({'error': 'IP no estaba bloqueada'}, status=404)
+    except Organization.DoesNotExist:
+        return JsonResponse({'error': 'Organization not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@require_http_methods(["GET"])
+def list_blocked_ips(request, org_id):
+    """Lista las IPs bloqueadas manualmente"""
+    try:
+        organization = Organization.objects.get(id=org_id)
+        rules = WAFRule.objects.filter(
+            organization=organization,
+            rule_type='ip_block',
+        ).order_by('-created_at')
+        return JsonResponse({
+            'success': True,
+            'blocked_ips': [{
+                'rule_id': r.id,
+                'ip': r.pattern,
+                'reason': r.description,
+                'blocked_at': r.created_at.isoformat(),
+                'is_enabled': r.is_enabled,
+            } for r in rules]
+        })
+    except Organization.DoesNotExist:
+        return JsonResponse({'error': 'Organization not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
 # Template views for web dashboard
 from django.contrib.auth.decorators import login_required
 
@@ -401,7 +548,7 @@ def waf_dashboard_view(request):
         'blocked_requests': WAFLog.objects.filter(
             organization=organization,
             timestamp__gte=last_24h,
-            action='blocked'
+            blocked=True
         ).count(),
         'active_rules': WAFRule.objects.filter(
             organization=organization,
