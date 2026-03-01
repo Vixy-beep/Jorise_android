@@ -12,7 +12,17 @@ import requests as http_requests
 @login_required
 def dashboard_view(request):
     """Main dashboard view showing SOC overview"""
-    organization = request.user.profile.organization
+    try:
+        organization = request.user.profile.organization
+    except Exception:
+        organization = None
+
+    # Superusers without an org go to admin
+    if organization is None:
+        if request.user.is_superuser:
+            return redirect('/admin/')
+        return redirect('/login/')
+
     now = timezone.now()
     last_24h = now - timedelta(hours=24)
     
@@ -22,6 +32,8 @@ def dashboard_view(request):
         timestamp__gte=last_24h
     )
     
+    subscription = getattr(organization, 'subscription', None)
+
     # Calculate stats
     stats = {
         'total_events': events.count(),
@@ -34,7 +46,7 @@ def dashboard_view(request):
     }
     
     # SIEM stats if enabled
-    if organization.subscription.siem_enabled:
+    if subscription and subscription.siem_enabled:
         siem_logs = SIEMLog.objects.filter(
             organization=organization,
             timestamp__gte=last_24h
@@ -45,7 +57,7 @@ def dashboard_view(request):
         }
     
     # EDR stats if enabled
-    if organization.subscription.edr_enabled:
+    if subscription and subscription.edr_enabled:
         edr_agents = EDRAgent.objects.filter(organization=organization)
         stats['edr'] = {
             'active_endpoints': edr_agents.filter(
@@ -59,7 +71,7 @@ def dashboard_view(request):
         }
     
     # WAF stats if enabled
-    if organization.subscription.waf_enabled:
+    if subscription and subscription.waf_enabled:
         waf_logs = WAFLog.objects.filter(
             organization=organization,
             timestamp__gte=last_24h
