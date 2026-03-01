@@ -46,7 +46,7 @@ echo "[5/8] Python Jorise..."
 python3 -m venv "$JORISE_VENV"
 "$JORISE_VENV/bin/python" -m pip install -q --upgrade pip
 "$JORISE_VENV/bin/python" -m pip install -q -r "$JORISE_DIR/requirements.txt"
-"$JORISE_VENV/bin/python" -m pip install -q "gunicorn==21.2.0"
+"$JORISE_VENV/bin/python" -m pip install -q --force-reinstall "gunicorn==21.2.0"
 chown -R jorise:jorise "$JORISE_VENV"
 
 echo "[6/8] Python Guardian..."
@@ -76,7 +76,7 @@ fi
 echo "[8/8] Supervisor + Nginx..."
 cat > /etc/supervisor/conf.d/jorise.conf << SUPEOF
 [program:jorise]
-command=${JORISE_VENV}/bin/gunicorn jorise.wsgi:application --bind 127.0.0.1:8000 --workers 3 --timeout 120
+command=${JORISE_VENV}/bin/python -m gunicorn jorise.wsgi:application --bind 127.0.0.1:8000 --workers 3 --timeout 120
 directory=${JORISE_DIR}
 user=jorise
 autostart=true
