@@ -1,9 +1,9 @@
-#!/bin/bash
-# ─────────────────────────────────────────────────────────────────────────────
+﻿#!/bin/bash
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # Jorise VPS Deploy Script
 # VPS: 207.244.255.208
 # Ejecutar como root: bash deploy_vps.sh
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 set -e
 
 VPS_USER="jorise"
@@ -17,17 +17,17 @@ echo "======================================"
 echo "  Jorise VPS Deploy - 207.244.255.208"
 echo "======================================"
 
-# ── 1. Dependencias del sistema ───────────────────────────────────────────────
+# â”€â”€ 1. Dependencias del sistema â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 echo "[1/7] Instalando dependencias del sistema..."
 apt-get update -qq
 apt-get install -y -qq python3 python3-pip python3-venv git nginx supervisor \
     build-essential libssl-dev libffi-dev python3-dev dos2unix
 
-# ── 2. Crear usuario ──────────────────────────────────────────────────────────
+# â”€â”€ 2. Crear usuario â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 echo "[2/7] Configurando usuario $VPS_USER..."
 id -u "$VPS_USER" &>/dev/null || useradd -m -s /bin/bash "$VPS_USER"
 
-# ── 3. Clonar / actualizar repo ───────────────────────────────────────────────
+# â”€â”€ 3. Clonar / actualizar repo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 echo "[3/7] Descargando codigo..."
 if [ -d "$APP_DIR/.git" ]; then
     echo "  Actualizando repo existente..."
@@ -39,7 +39,7 @@ fi
 # Convertir CRLF -> LF (archivos creados en Windows)
 find "$APP_DIR" -name "*.py" -o -name "*.sh" | xargs dos2unix -q 2>/dev/null || true
 
-# ── 4. Entorno virtual + dependencias ─────────────────────────────────────────
+# â”€â”€ 4. Entorno virtual + dependencias â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 echo "[4/7] Instalando dependencias Python..."
 
 # Crear venv si no existe
@@ -51,7 +51,7 @@ sudo -u "$VPS_USER" "$PIP" install -q --upgrade pip
 sudo -u "$VPS_USER" "$PIP" install -q -r "$APP_DIR/requirements.txt"
 sudo -u "$VPS_USER" "$PIP" install -q "gunicorn==21.2.0"
 
-# ── 5. Variables de entorno ────────────────────────────────────────────────────
+# â”€â”€ 5. Variables de entorno â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 echo "[5/7] Configurando .env..."
 if [ ! -f "$APP_DIR/.env" ]; then
     SECRET=$(python3 -c "import secrets; print(secrets.token_urlsafe(50))")
@@ -70,13 +70,13 @@ else
     echo "  .env ya existe, no modificado"
 fi
 
-# ── 6. Migraciones + static ───────────────────────────────────────────────────
+# â”€â”€ 6. Migraciones + static â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 echo "[6/7] Migraciones y archivos estaticos..."
 cd "$APP_DIR"
 sudo -u "$VPS_USER" "$PYTHON" manage.py migrate --no-input
 sudo -u "$VPS_USER" "$PYTHON" manage.py collectstatic --no-input --clear
 
-# ── 7. Configurar nginx + supervisor ──────────────────────────────────────────
+# â”€â”€ 7. Configurar nginx + supervisor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 echo "[7/7] Configurando supervisor y nginx..."
 
 # Gunicorn via supervisor
