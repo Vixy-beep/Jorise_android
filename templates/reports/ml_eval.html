@@ -1,0 +1,230 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}ML Evaluation Report — Jorise{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+  <!-- Header -->
+  <div class="d-flex align-items-center mb-4">
+    <div>
+      <h1 class="h3 mb-0 fw-bold text-dark">ML Evaluation Report</h1>
+      <p class="text-muted mb-0 small">CIC-IDS2017 benchmark — in-sample &amp; cross-file generalization</p>
+    </div>
+    <div class="ms-auto d-flex gap-2">
+      {% if pdf_exists %}
+      <a href="?download=1" class="btn btn-primary">
+        <i class="bi bi-download me-1"></i> Download PDF
+      </a>
+      {% endif %}
+      <button id="btn-run" class="btn btn-outline-danger" onclick="runEval()">
+        <i class="bi bi-play-fill me-1"></i> Re-run Evaluation
+      </button>
+    </div>
+  </div>
+
+  {% if pdf_exists %}
+  <!-- Status card -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body d-flex align-items-center gap-3">
+          <div class="bg-success bg-opacity-10 rounded-3 p-3">
+            <i class="bi bi-file-earmark-pdf text-success fs-4"></i>
+          </div>
+          <div>
+            <div class="fw-bold">Report Generated</div>
+            <div class="text-muted small">{{ pdf_mtime }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body d-flex align-items-center gap-3">
+          <div class="bg-primary bg-opacity-10 rounded-3 p-3">
+            <i class="bi bi-hdd text-primary fs-4"></i>
+          </div>
+          <div>
+            <div class="fw-bold">{{ pdf_size_mb }} MB</div>
+            <div class="text-muted small">PDF file size</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body d-flex align-items-center gap-3">
+          <div class="bg-warning bg-opacity-10 rounded-3 p-3">
+            <i class="bi bi-exclamation-triangle text-warning fs-4"></i>
+          </div>
+          <div>
+            <div class="fw-bold">Lab Data Only</div>
+            <div class="text-muted small">CIC-IDS2017 benchmark</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Key findings -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white border-bottom py-3">
+      <h5 class="mb-0 fw-semibold">Key Findings</h5>
+    </div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <div class="p-3 rounded-3 bg-success bg-opacity-10 border border-success border-opacity-25">
+            <div class="fw-bold text-success mb-2"><i class="bi bi-check-circle me-1"></i> In-Sample Performance</div>
+            <ul class="mb-0 small">
+              <li>All 6 RF models achieve <strong>99.9–100% F1</strong> on their training CSV</li>
+              <li>Near-zero false positive rate (&lt;0.03%)</li>
+              <li>Confirms pipeline correctness and feature quality</li>
+            </ul>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="p-3 rounded-3 bg-danger bg-opacity-10 border border-danger border-opacity-25">
+            <div class="fw-bold text-danger mb-2"><i class="bi bi-x-circle me-1"></i> Cross-File Generalization</div>
+            <ul class="mb-0 small">
+              <li>All models collapse to <strong>F1 ≈ 0%</strong> on different attack types</li>
+              <li>60% accuracy = <strong>predicting BENIGN for everything</strong></li>
+              <li>DDoS model cannot detect WebAttacks and vice versa</li>
+            </ul>
+          </div>
+        </div>
+        <div class="col-12">
+          <div class="p-3 rounded-3 bg-primary bg-opacity-10 border border-primary border-opacity-25">
+            <div class="fw-bold text-primary mb-2"><i class="bi bi-lightbulb me-1"></i> Root Cause & Fix</div>
+            <p class="mb-1 small">
+              Each model was trained on one attack type per CSV. DDoS flows (short duration, 
+              uniform packet length) are statistically distinct from PortScan flows (single-packet SYN, 
+              no response). The Random Forest memorized per-day fingerprints.
+            </p>
+            <p class="mb-0 small fw-semibold">
+              Fix: Train ONE unified model on ALL 8 CSVs concatenated (multi-class, 
+              using all attack labels, not binary). This is the retrain strategy.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Metrics table -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white border-bottom py-3">
+      <h5 class="mb-0 fw-semibold">Results Table</h5>
+    </div>
+    <div class="card-body p-0">
+      <table class="table table-hover mb-0 small">
+        <thead class="table-dark">
+          <tr>
+            <th>Model</th>
+            <th>Test Type</th>
+            <th class="text-center">Accuracy</th>
+            <th class="text-center">Precision</th>
+            <th class="text-center">Recall</th>
+            <th class="text-center">F1</th>
+            <th class="text-center">FP Rate</th>
+            <th class="text-center">Verdict</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in table_rows %}
+          <tr>
+            <td class="fw-semibold">{{ row.model }}</td>
+            <td><span class="badge {% if row.test_type == 'In-Sample' %}bg-primary{% else %}bg-warning text-dark{% endif %}">{{ row.test_type }}</span></td>
+            <td class="text-center">{{ row.acc }}</td>
+            <td class="text-center">{{ row.prec }}</td>
+            <td class="text-center">{{ row.rec }}</td>
+            <td class="text-center fw-bold {% if row.f1_raw >= 0.85 %}text-success{% elif row.f1_raw >= 0.65 %}text-warning{% else %}text-danger{% endif %}">{{ row.f1 }}</td>
+            <td class="text-center {% if row.fpr_raw > 0.05 %}text-danger fw-bold{% endif %}">{{ row.fpr }}</td>
+            <td class="text-center"><span class="badge {% if row.verdict == 'PASS' %}bg-success{% elif row.verdict == 'REVIEW' %}bg-warning text-dark{% else %}bg-danger{% endif %}">{{ row.verdict }}</span></td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="8" class="text-center text-muted py-4">Run evaluation to see results.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- PDF preview embed -->
+  <div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-bottom py-3 d-flex align-items-center">
+      <h5 class="mb-0 fw-semibold">PDF Preview</h5>
+      <a href="?download=1" class="btn btn-sm btn-outline-primary ms-auto">
+        <i class="bi bi-download me-1"></i> Download
+      </a>
+    </div>
+    <div class="card-body p-0">
+      <iframe src="?download=1#view=FitH"
+              style="width:100%;height:75vh;border:none;"
+              title="ML Evaluation Report PDF">
+      </iframe>
+    </div>
+  </div>
+
+  {% else %}
+  <!-- Not generated yet -->
+  <div class="card border-0 shadow-sm text-center py-5">
+    <div class="card-body">
+      <div class="display-1 text-muted mb-3">📊</div>
+      <h4>No evaluation report found</h4>
+      <p class="text-muted">Click <strong>Re-run Evaluation</strong> to generate metrics.<br>
+        The process loads 6 models against 12 CSV files (~5 minutes).</p>
+      <button class="btn btn-primary btn-lg mt-2" onclick="runEval()">
+        <i class="bi bi-play-fill me-2"></i> Run Now
+      </button>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+<div class="modal fade" id="runModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header border-0">
+        <h5 class="modal-title">ML Evaluation</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center py-4">
+        <div id="runStatus">
+          <div class="spinner-border text-primary mb-3"></div>
+          <div class="fw-semibold">Starting evaluation pipeline...</div>
+          <div class="text-muted small mt-1">Loading 6 models × 2 CSVs each. Takes ~5 minutes.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function runEval() {
+  const modal = new bootstrap.Modal(document.getElementById('runModal'));
+  modal.show();
+  fetch('{% url "run_ml_eval" %}', {
+    method: 'POST',
+    headers: {'X-CSRFToken': '{{ csrf_token }}'},
+  })
+  .then(r => r.json())
+  .then(data => {
+    document.getElementById('runStatus').innerHTML = data.error
+      ? `<div class="text-danger">${data.error}</div>`
+      : `<div class="text-success fw-bold mb-2">✓ Evaluation started (PID ${data.pid})</div>
+         <div class="text-muted small">${data.message}</div>
+         <button class="btn btn-outline-primary mt-3" onclick="location.reload()">
+           <i class="bi bi-arrow-clockwise me-1"></i> Refresh page
+         </button>`;
+  })
+  .catch(e => {
+    document.getElementById('runStatus').innerHTML =
+      `<div class="text-danger">Error: ${e.message}</div>`;
+  });
+}
+</script>
+{% endblock %}

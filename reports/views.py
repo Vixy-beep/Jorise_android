@@ -1,8 +1,10 @@
+import os
 from django.shortcuts import render, redirect, get_object_or_404
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, JsonResponse, FileResponse
 from django.template.loader import render_to_string
 from django.contrib import messages
 from django.utils import timezone
+from django.conf import settings
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
@@ -162,5 +164,50 @@ def delete_report(request, report_id):
         report = get_object_or_404(Report, id=report_id)
         report.delete()
         messages.success(request, 'Reporte eliminado exitosamente.')
+
+
+# ── ML Evaluation Report ──────────────────────────────────────────────────────
+
+ML_EVAL_PDF = os.path.join(settings.BASE_DIR, 'reports', 'jorise_ml_eval.pdf')
+
+
+def ml_eval_report(request):
+    """Serve the ML evaluation PDF, or show status page if not generated yet."""
+    pdf_exists = os.path.exists(ML_EVAL_PDF)
+    if request.GET.get('download') == '1' and pdf_exists:
+        return FileResponse(open(ML_EVAL_PDF, 'rb'),
+                            as_attachment=True,
+                            filename='jorise_ml_eval.pdf',
+                            content_type='application/pdf')
+    return render(request, 'reports/ml_eval.html', {
+        'pdf_exists': pdf_exists,
+        'pdf_size_mb': round(os.path.getsize(ML_EVAL_PDF) / 1e6, 2) if pdf_exists else None,
+        'pdf_mtime': (
+            timezone.datetime.fromtimestamp(os.path.getmtime(ML_EVAL_PDF))
+            .strftime('%Y-%m-%d %H:%M')
+            if pdf_exists else None
+        ),
+    })
+
+
+def run_ml_eval(request):
+    """Trigger evaluation in background and return JSON status."""
+    import subprocess
+    import sys
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    try:
+        python = sys.executable
+        eval_script = os.path.join(settings.BASE_DIR, 'full_eval.py')
+        proc = subprocess.Popen(
+            [python, eval_script],
+            cwd=settings.BASE_DIR,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        return JsonResponse({'status': 'running', 'pid': proc.pid,
+                             'message': 'Evaluation started. Takes ~5 min. Refresh page after.'})
+    except Exception as exc:
+        return JsonResponse({'error': str(exc)}, status=500)
     
     return redirect('reports_list')
