@@ -1,0 +1,84 @@
+{% extends 'dashboard/base_dashboard.html' %}
+{% load static %}
+
+{% block title %}WAF Dashboard - Jorise{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="h3 mb-3"><i class="fas fa-shield-alt"></i> WAF Dashboard</h1>
+            <p class="text-muted">Web Application Firewall - AI-Powered Attack Detection</p>
+        </div>
+    </div>
+
+    {% if not organization.subscription.waf_enabled %}
+    <div class="alert alert-warning">
+        <i class="fas fa-lock"></i> WAF module requires Pro or Enterprise plan.
+        <a href="{% url 'subscription_management' %}" class="alert-link">Upgrade now</a>
+    </div>
+    {% else %}
+
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Requests Analyzed</h5>
+                    <h2 id="requests-analyzed">-</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Attacks Blocked</h5>
+                    <h2 id="attacks-blocked">-</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Active Rules</h5>
+                    <h2 id="active-rules">-</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Block Rate</h5>
+                    <h2 id="block-rate">-</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Recent Attacks</h5>
+                </div>
+                <div class="card-body">
+                    <div id="attacks-table">Loading...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Load WAF dashboard data via API
+        fetch('/api/soc/{{ organization.id }}/waf/dashboard/')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('requests-analyzed').textContent = data.requests_analyzed || 0;
+                document.getElementById('attacks-blocked').textContent = data.attacks_blocked || 0;
+                document.getElementById('active-rules').textContent = data.active_rules || 0;
+                document.getElementById('block-rate').textContent = (data.block_rate || 0) + '%';
+            })
+            .catch(error => console.error('Error loading WAF data:', error));
+    </script>
+    {% endif %}
+</div>
+{% endblock %}

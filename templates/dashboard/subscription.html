@@ -1,0 +1,286 @@
+{% extends 'dashboard/base_dashboard.html' %}
+
+{% block page_title %}Suscripción{% endblock %}
+{% block page_subtitle %}Gestiona tu plan y uso{% endblock %}
+
+{% block dashboard_content %}
+<!-- Current Plan -->
+<div class="glass-card p-8 mb-6">
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h2 class="text-2xl font-bold mb-2">Plan {{ subscription.get_plan_display }}</h2>
+            <p class="text-gray-400">
+                {% if subscription.is_active %}
+                    ✅ Activo
+                    {% if days_until_renewal %}
+                        - Renueva en {{ days_until_renewal }} días
+                    {% endif %}
+                {% else %}
+                    ⚠️ Inactivo
+                {% endif %}
+            </p>
+        </div>
+        
+        {% if subscription.plan != 'enterprise' %}
+        <button class="px-6 py-3 rounded-lg bg-gradient-to-r from-primary to-secondary font-bold hover:opacity-90 transition-all">
+            Actualizar plan
+        </button>
+        {% endif %}
+    </div>
+    
+    <!-- Features Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="p-4 rounded-lg bg-white/5">
+            <div class="flex items-center gap-2 mb-2">
+                {% if subscription.siem_enabled %}
+                <span class="text-green-400">✅</span>
+                {% else %}
+                <span class="text-gray-500">❌</span>
+                {% endif %}
+                <span class="font-medium">SIEM</span>
+            </div>
+            <p class="text-sm text-gray-400">Análisis de logs</p>
+        </div>
+        
+        <div class="p-4 rounded-lg bg-white/5">
+            <div class="flex items-center gap-2 mb-2">
+                {% if subscription.edr_enabled %}
+                <span class="text-green-400">✅</span>
+                {% else %}
+                <span class="text-gray-500">❌</span>
+                {% endif %}
+                <span class="font-medium">EDR</span>
+            </div>
+            <p class="text-sm text-gray-400">Protección endpoints</p>
+        </div>
+        
+        <div class="p-4 rounded-lg bg-white/5">
+            <div class="flex items-center gap-2 mb-2">
+                {% if subscription.waf_enabled %}
+                <span class="text-green-400">✅</span>
+                {% else %}
+                <span class="text-gray-500">❌</span>
+                {% endif %}
+                <span class="font-medium">WAF</span>
+            </div>
+            <p class="text-sm text-gray-400">Web firewall</p>
+        </div>
+        
+        <div class="p-4 rounded-lg bg-white/5">
+            <div class="flex items-center gap-2 mb-2">
+                {% if limits.ai_reports %}
+                <span class="text-green-400">✅</span>
+                {% else %}
+                <span class="text-gray-500">❌</span>
+                {% endif %}
+                <span class="font-medium">Reportes AI</span>
+            </div>
+            <p class="text-sm text-gray-400">Análisis con IA</p>
+        </div>
+    </div>
+</div>
+
+<!-- Usage Stats -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+    <!-- Events -->
+    <div class="glass-card p-6">
+        <h3 class="text-sm text-gray-400 mb-2">Eventos este mes</h3>
+        <div class="mb-3">
+            <div class="flex items-baseline gap-2">
+                <span class="text-3xl font-bold">{{ usage.events_this_month|default:0 }}</span>
+                {% if limits.events_per_month != -1 %}
+                <span class="text-sm text-gray-400">/ {{ limits.events_per_month }}</span>
+                {% else %}
+                <span class="text-sm text-gray-400">/ ∞</span>
+                {% endif %}
+            </div>
+        </div>
+        {% if limits.events_per_month != -1 %}
+        <div class="w-full bg-white/10 rounded-full h-2">
+            <div class="bg-gradient-to-r from-primary to-secondary h-2 rounded-full" style="width: {% widthratio usage.events_this_month limits.events_per_month 100 %}%"></div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- SIEM Logs -->
+    <div class="glass-card p-6">
+        <h3 class="text-sm text-gray-400 mb-2">Logs SIEM</h3>
+        <div class="mb-3">
+            <div class="flex items-baseline gap-2">
+                <span class="text-3xl font-bold">{{ usage.siem_logs_this_month|default:0 }}</span>
+                {% if limits.siem_logs_per_month != -1 %}
+                <span class="text-sm text-gray-400">/ {{ limits.siem_logs_per_month }}</span>
+                {% else %}
+                <span class="text-sm text-gray-400">/ ∞</span>
+                {% endif %}
+            </div>
+        </div>
+        {% if limits.siem_logs_per_month != -1 %}
+        <div class="w-full bg-white/10 rounded-full h-2">
+            <div class="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full" style="width: {% widthratio usage.siem_logs_this_month limits.siem_logs_per_month 100 %}%"></div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- WAF Requests -->
+    <div class="glass-card p-6">
+        <h3 class="text-sm text-gray-400 mb-2">Peticiones WAF</h3>
+        <div class="mb-3">
+            <div class="flex items-baseline gap-2">
+                <span class="text-3xl font-bold">{{ usage.waf_requests_this_month|default:0 }}</span>
+                {% if limits.waf_requests_per_month != -1 %}
+                <span class="text-sm text-gray-400">/ {{ limits.waf_requests_per_month }}</span>
+                {% else %}
+                <span class="text-sm text-gray-400">/ ∞</span>
+                {% endif %}
+            </div>
+        </div>
+        {% if limits.waf_requests_per_month != -1 %}
+        <div class="w-full bg-white/10 rounded-full h-2">
+            <div class="bg-gradient-to-r from-orange-500 to-red-500 h-2 rounded-full" style="width: {% widthratio usage.waf_requests_this_month limits.waf_requests_per_month 100 %}%"></div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Sandbox Analyses -->
+    <div class="glass-card p-6">
+        <h3 class="text-sm text-gray-400 mb-2">Análisis Sandbox</h3>
+        <div class="mb-3">
+            <div class="flex items-baseline gap-2">
+                <span class="text-3xl font-bold">{{ usage.sandbox_analyses_this_month|default:0 }}</span>
+                {% if limits.sandbox_analyses_per_month != -1 %}
+                <span class="text-sm text-gray-400">/ {{ limits.sandbox_analyses_per_month }}</span>
+                {% else %}
+                <span class="text-sm text-gray-400">/ ∞</span>
+                {% endif %}
+            </div>
+        </div>
+        {% if limits.sandbox_analyses_per_month != -1 %}
+        <div class="w-full bg-white/10 rounded-full h-2">
+            <div class="bg-gradient-to-r from-green-500 to-teal-500 h-2 rounded-full" style="width: {% widthratio usage.sandbox_analyses_this_month limits.sandbox_analyses_per_month 100 %}%"></div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Plan Comparison -->
+<div class="glass-card p-8">
+    <h2 class="text-2xl font-bold mb-6">Planes disponibles</h2>
+    
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Free Plan -->
+        <div class="p-6 rounded-xl bg-white/5 border-2 {% if subscription.plan == 'free' %}border-primary{% else %}border-transparent{% endif %}">
+            <h3 class="text-xl font-bold mb-2">Free</h3>
+            <p class="text-3xl font-bold mb-4">$0<span class="text-sm text-gray-400">/mes</span></p>
+            <ul class="space-y-3 mb-6 text-sm">
+                <li class="flex items-center gap-2">
+                    <span class="text-green-400">✓</span>
+                    10,000 eventos/mes
+                </li>
+                <li class="flex items-center gap-2">
+                    <span class="text-green-400">✓</span>
+                    Sandbox básico
+                </li>
+                <li class="flex items-center gap-2">
+                    <span class="text-green-400">✓</span>
+                    7 días retención
+                </li>
+                <li class="flex items-center gap-2 text-gray-500">
+                    <span>✗</span>
+                    Sin SIEM/EDR/WAF
+                </li>
+                <li class="flex items-center gap-2 text-gray-500">
+                    <span>✗</span>
+                    Sin reportes AI
+                </li>
+            </ul>
+            {% if subscription.plan != 'free' %}
+            <button class="w-full py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all">
+                Cambiar a Free
+            </button>
+            {% else %}
+            <button class="w-full py-2 rounded-lg bg-white/5 cursor-not-allowed" disabled>
+                Plan actual
+            </button>
+            {% endif %}
+        </div>
+        
+        <!-- Pro Plan -->
+        <div class="p-6 rounded-xl bg-white/5 border-2 {% if subscription.plan == 'pro' %}border-primary{% else %}border-transparent{% endif %} relative">
+            <div class="absolute -top-3 left-1/2 transform -translate-x-1/2 px-3 py-1 rounded-full bg-gradient-to-r from-primary to-secondary text-xs font-bold">
+                POPULAR
+            </div>
+            <h3 class="text-xl font-bold mb-2">Pro</h3>
+            <p class="text-3xl font-bold mb-4">$99<span class="text-sm text-gray-400">/mes</span></p>
+            <ul class="space-y-3 mb-6 text-sm">
+                <li class="flex items-center gap-2">
+                    <span class="text-green-400">✓</span>
+                    100,000 eventos/mes
+                </li>
+                <li class="flex items-center gap-2">
+                    <span class="text-green-400">✓</span>
+                    SIEM + EDR + WAF
+                </li>
+                <li class="flex items-center gap-2">
+                    <span class="text-green-400">✓</span>
+                    Reportes con IA
+                </li>
+                <li class="flex items-center gap-2">
+                    <span class="text-green-400">✓</span>
+                    30 días retención
+                </li>
+                <li class="flex items-center gap-2">
+                    <span class="text-green-400">✓</span>
+                    Soporte prioritario
+                </li>
+            </ul>
+            {% if subscription.plan != 'pro' %}
+            <button class="w-full py-2 rounded-lg bg-gradient-to-r from-primary to-secondary font-bold hover:opacity-90 transition-all">
+                Actualizar a Pro
+            </button>
+            {% else %}
+            <button class="w-full py-2 rounded-lg bg-white/5 cursor-not-allowed" disabled>
+                Plan actual
+            </button>
+            {% endif %}
+        </div>
+        
+        <!-- Enterprise Plan -->
+        <div class="p-6 rounded-xl bg-white/5 border-2 {% if subscription.plan == 'enterprise' %}border-yellow-500{% else %}border-transparent{% endif %}">
+            <h3 class="text-xl font-bold mb-2">Enterprise</h3>
+            <p class="text-3xl font-bold mb-4">$499<span class="text-sm text-gray-400">/mes</span></p>
+            <ul class="space-y-3 mb-6 text-sm">
+                <li class="flex items-center gap-2">
+                    <span class="text-yellow-400">✓</span>
+                    Eventos ilimitados
+                </li>
+                <li class="flex items-center gap-2">
+                    <span class="text-yellow-400">✓</span>
+                    Todos los módulos
+                </li>
+                <li class="flex items-center gap-2">
+                    <span class="text-yellow-400">✓</span>
+                    IA avanzada
+                </li>
+                <li class="flex items-center gap-2">
+                    <span class="text-yellow-400">✓</span>
+                    365 días retención
+                </li>
+                <li class="flex items-center gap-2">
+                    <span class="text-yellow-400">✓</span>
+                    Soporte 24/7 dedicado
+                </li>
+            </ul>
+            {% if subscription.plan != 'enterprise' %}
+            <button class="w-full py-2 rounded-lg bg-gradient-to-r from-yellow-500 to-orange-500 font-bold hover:opacity-90 transition-all">
+                Contactar ventas
+            </button>
+            {% else %}
+            <button class="w-full py-2 rounded-lg bg-white/5 cursor-not-allowed" disabled>
+                Plan actual
+            </button>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

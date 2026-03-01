@@ -1,0 +1,201 @@
+{% extends 'base.html' %}
+
+{% block title %}Generar Reporte - Jorise{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-file-plus me-2"></i>
+            Generar Nuevo Reporte
+        </h1>
+    </div>
+</div>
+
+<form method="post">
+    {% csrf_token %}
+    <div class="row">
+        <div class="col-lg-8 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-cog me-2"></i>
+                        Configuración del Reporte
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="title" class="form-label">Título del Reporte</label>
+                        <input type="text" class="form-control" id="title" name="title" 
+                               value="Reporte de Seguridad - {{ "now"|date:"d/m/Y" }}" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="report_type" class="form-label">Tipo de Reporte</label>
+                        <select class="form-select" id="report_type" name="report_type" required>
+                            <option value="summary">Resumen - Vista general de todos los escaneos</option>
+                            <option value="detailed">Detallado - Análisis completo con estadísticas</option>
+                            <option value="individual">Individual - Archivo específico</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3" id="scan_selection" style="display: none;">
+                        <label for="scan_id" class="form-label">Seleccionar Escaneo</label>
+                        <select class="form-select" id="scan_id" name="scan_id">
+                            <option value="">Selecciona un escaneo...</option>
+                            {% for scan in scans %}
+                                <option value="{{ scan.id }}">
+                                    {{ scan.file_name }} - {{ scan.created_at|date:"d/m/Y H:i" }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="format" class="form-label">Formato de Salida</label>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="format" id="format_html" value="html" checked>
+                                    <label class="form-check-label" for="format_html">
+                                        <i class="fas fa-code me-2 text-primary"></i>
+                                        <strong>HTML</strong>
+                                        <br>
+                                        <small class="text-muted">Visualización interactiva en navegador</small>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="format" id="format_pdf" value="pdf">
+                                    <label class="form-check-label" for="format_pdf">
+                                        <i class="fas fa-file-pdf me-2 text-danger"></i>
+                                        <strong>PDF</strong>
+                                        <br>
+                                        <small class="text-muted">Documento descargable</small>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Información
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <h6>Vista Previa del Contenido</h6>
+                        <div id="report_preview">
+                            <p>El reporte de <strong>resumen</strong> incluirá:</p>
+                            <ul class="mb-0">
+                                <li>Estadísticas generales</li>
+                                <li>Distribución de riesgos</li>
+                                <li>Lista de archivos analizados</li>
+                                <li>Recomendaciones de seguridad</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <h6>Estadísticas Actuales</h6>
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-file me-2"></i>{{ scans|length }} archivos escaneados</li>
+                            <li><i class="fas fa-calendar me-2"></i>Fecha: {{ "now"|date:"d/m/Y H:i" }}</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-cogs me-2"></i>
+                        Acciones
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-file-export me-2"></i>
+                            Generar Reporte
+                        </button>
+                        <a href="{% url 'reports_list' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>
+                            Volver a Reportes
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+{% if not scans %}
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>Nota:</strong> No hay escaneos disponibles para generar reportes. 
+            <a href="{% url 'upload_file' %}" class="alert-link">Sube algunos archivos</a> primero.
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('report_type').addEventListener('change', function() {
+    const reportType = this.value;
+    const scanSelection = document.getElementById('scan_selection');
+    const preview = document.getElementById('report_preview');
+    
+    if (reportType === 'individual') {
+        scanSelection.style.display = 'block';
+        document.getElementById('scan_id').required = true;
+        preview.innerHTML = `
+            <p>El reporte <strong>individual</strong> incluirá:</p>
+            <ul class="mb-0">
+                <li>Detalles completos del archivo</li>
+                <li>Resultados de VirusTotal</li>
+                <li>Análisis de riesgo detallado</li>
+                <li>Recomendaciones específicas</li>
+            </ul>
+        `;
+    } else {
+        scanSelection.style.display = 'none';
+        document.getElementById('scan_id').required = false;
+        
+        if (reportType === 'detailed') {
+            preview.innerHTML = `
+                <p>El reporte <strong>detallado</strong> incluirá:</p>
+                <ul class="mb-0">
+                    <li>Análisis estadístico completo</li>
+                    <li>Gráficos y tendencias</li>
+                    <li>Detalles de todos los escaneos</li>
+                    <li>Comparativas temporales</li>
+                </ul>
+            `;
+        } else {
+            preview.innerHTML = `
+                <p>El reporte de <strong>resumen</strong> incluirá:</p>
+                <ul class="mb-0">
+                    <li>Estadísticas generales</li>
+                    <li>Distribución de riesgos</li>
+                    <li>Lista de archivos analizados</li>
+                    <li>Recomendaciones de seguridad</li>
+                </ul>
+            `;
+        }
+    }
+});
+</script>
+{% endblock %}

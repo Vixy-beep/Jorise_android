@@ -1,0 +1,180 @@
+{% extends 'base.html' %}
+
+{% block title %}Reportes - Jorise{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>
+                <i class="fas fa-file-alt me-2"></i>
+                Reportes de Seguridad
+            </h1>
+            <a href="{% url 'generate_report' %}" class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i>
+                Generar Nuevo Reporte
+            </a>
+        </div>
+    </div>
+</div>
+
+{% if reports %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Título</th>
+                                <th>Tipo</th>
+                                <th>Formato</th>
+                                <th>Archivos</th>
+                                <th>Fecha</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for report in reports %}
+                            <tr>
+                                <td>
+                                    <div class="fw-bold">{{ report.title }}</div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">
+                                        {{ report.get_report_type_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if report.format == 'pdf' %}
+                                        <span class="badge bg-danger">
+                                            <i class="fas fa-file-pdf me-1"></i>PDF
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-primary">
+                                            <i class="fas fa-code me-1"></i>HTML
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">
+                                        {{ report.scan_results.count }} archivo(s)
+                                    </span>
+                                </td>
+                                <td>
+                                    <div>{{ report.generated_date|date:"d/m/Y" }}</div>
+                                    <small class="text-muted">{{ report.generated_date|date:"H:i" }}</small>
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <a href="{% url 'view_report' report.id %}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-eye"></i> Ver
+                                        </a>
+                                        <form method="post" action="{% url 'delete_report' report.id %}" class="d-inline">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Eliminar este reporte?')">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<!-- Estado vacío -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="fas fa-file-alt fa-4x text-muted mb-4"></i>
+                <h3 class="text-muted">No hay reportes generados</h3>
+                <p class="text-muted mb-4">
+                    Los reportes te permiten documentar y compartir los resultados de los análisis de seguridad.
+                </p>
+                <a href="{% url 'generate_report' %}" class="btn btn-primary btn-lg">
+                    <i class="fas fa-plus me-2"></i>
+                    Generar Primer Reporte
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Información adicional -->
+<div class="row mt-4">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Tipos de Reporte
+                </h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0">
+                    <li class="mb-2">
+                        <strong>Individual:</strong> Análisis detallado de un archivo específico
+                    </li>
+                    <li class="mb-2">
+                        <strong>Resumen:</strong> Vista general de todos los escaneos
+                    </li>
+                    <li class="mb-0">
+                        <strong>Detallado:</strong> Reporte completo con estadísticas avanzadas
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-download me-2"></i>
+                    Formatos Disponibles
+                </h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0">
+                    <li class="mb-2">
+                        <i class="fas fa-code me-2 text-primary"></i>
+                        <strong>HTML:</strong> Visualización interactiva en navegador
+                    </li>
+                    <li class="mb-0">
+                        <i class="fas fa-file-pdf me-2 text-danger"></i>
+                        <strong>PDF:</strong> Documento descargable para archivo
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-lightbulb me-2"></i>
+                    Consejos
+                </h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0">
+                    <li class="mb-2">• Genera reportes regulares para auditorías</li>
+                    <li class="mb-2">• Usa PDF para documentación oficial</li>
+                    <li class="mb-0">• HTML para análisis interactivo</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

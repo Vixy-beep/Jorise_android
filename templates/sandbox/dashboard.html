@@ -1,0 +1,118 @@
+{% extends 'dashboard/base_dashboard.html' %}
+{% load static %}
+
+{% block title %}Sandbox Dashboard - Jorise{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="h3 mb-3"><i class="fas fa-flask"></i> Sandbox Dashboard</h1>
+            <p class="text-muted">Malware Analysis - Secure File Scanning</p>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Files Analyzed</h5>
+                    <h2 id="files-analyzed">-</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Malware Detected</h5>
+                    <h2 id="malware-detected">-</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Clean Files</h5>
+                    <h2 id="clean-files">-</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Pending Analysis</h5>
+                    <h2 id="pending-analysis">-</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Upload File for Analysis</h5>
+                </div>
+                <div class="card-body">
+                    <form id="upload-form" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <input type="file" class="form-control" id="file-input" name="file" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-upload"></i> Submit for Analysis
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Recent Analyses</h5>
+                </div>
+                <div class="card-body">
+                    <div id="analyses-table">Loading...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Load Sandbox dashboard data via API
+        fetch('/api/soc/{{ organization.id }}/sandbox/dashboard/')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('files-analyzed').textContent = data.files_analyzed || 0;
+                document.getElementById('malware-detected').textContent = data.malware_detected || 0;
+                document.getElementById('clean-files').textContent = data.clean_files || 0;
+                document.getElementById('pending-analysis').textContent = data.pending_analysis || 0;
+            })
+            .catch(error => console.error('Error loading Sandbox data:', error));
+        
+        // Handle file upload
+        document.getElementById('upload-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            fetch('/api/soc/{{ organization.id }}/sandbox/submit/', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert('File submitted successfully! Analysis ID: ' + data.analysis_id);
+                location.reload();
+            })
+            .catch(error => {
+                alert('Error submitting file: ' + error);
+            });
+        });
+    </script>
+</div>
+{% endblock %}

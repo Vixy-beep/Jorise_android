@@ -1,0 +1,145 @@
+{% extends 'base.html' %}
+
+{% block title %}Registro - Jorise SOC{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center p-4 py-12">
+    <div class="w-full max-w-2xl">
+        <!-- Logo -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold mb-2">
+                <span class="gradient-primary bg-clip-text text-transparent">JORISE</span>
+            </h1>
+            <p class="text-gray-400">Crea tu cuenta y empieza a proteger tu organización</p>
+        </div>
+        
+        <!-- Register Card -->
+        <div class="card">
+            <h2 class="text-2xl font-bold mb-6">Crear Cuenta</h2>
+            
+            {% if messages %}
+                {% for message in messages %}
+                <div class="mb-4 p-4 rounded-lg {% if message.tags == 'error' %}bg-red-500/20 border border-red-500{% else %}bg-green-500/20 border border-green-500{% endif %}">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            {% endif %}
+            
+            <form method="POST" action="{% url 'register' %}">
+                {% csrf_token %}
+                
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Nombre</label>
+                        <input 
+                            type="text" 
+                            name="first_name" 
+                            class="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 focus:border-primary focus:outline-none transition"
+                            placeholder="Juan"
+                        >
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Apellido</label>
+                        <input 
+                            type="text" 
+                            name="last_name" 
+                            class="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 focus:border-primary focus:outline-none transition"
+                            placeholder="Pérez"
+                        >
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">Usuario *</label>
+                    <input 
+                        type="text" 
+                        name="username" 
+                        required
+                        class="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 focus:border-primary focus:outline-none transition"
+                        placeholder="usuario123"
+                    >
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">Email *</label>
+                    <input 
+                        type="email" 
+                        name="email" 
+                        required
+                        class="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 focus:border-primary focus:outline-none transition"
+                        placeholder="correo@empresa.com"
+                    >
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">Nombre de Organización *</label>
+                    <input 
+                        type="text" 
+                        name="organization_name" 
+                        required
+                        class="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 focus:border-primary focus:outline-none transition"
+                        placeholder="Mi Empresa S.A."
+                    >
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Contraseña *</label>
+                        <input 
+                            type="password" 
+                            name="password" 
+                            required
+                            class="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 focus:border-primary focus:outline-none transition"
+                            placeholder="••••••••"
+                        >
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Confirmar *</label>
+                        <input 
+                            type="password" 
+                            name="password2" 
+                            required
+                            class="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 focus:border-primary focus:outline-none transition"
+                            placeholder="••••••••"
+                        >
+                    </div>
+                </div>
+                
+                <div class="mb-6">
+                    <label class="block text-sm font-medium mb-2">Plan Inicial</label>
+                    <select 
+                        name="plan"
+                        class="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 focus:border-primary focus:outline-none transition"
+                    >
+                        <option value="free">Free - Gratis (Sandbox + Antivirus)</option>
+                        <option value="pro">Professional - $299/mes (Todos los módulos + IA)</option>
+                        <option value="enterprise">Enterprise - Custom (Todo ilimitado)</option>
+                    </select>
+                    <p class="text-xs text-gray-400 mt-2">Los planes Pro y Enterprise tienen 14 días de prueba gratis</p>
+                </div>
+                
+                <button 
+                    type="submit"
+                    class="w-full py-3 rounded-lg gradient-primary text-dark font-bold hover:opacity-90 transition"
+                >
+                    Crear Cuenta
+                </button>
+            </form>
+            
+            <div class="mt-6 text-center">
+                <p class="text-gray-400">
+                    ¿Ya tienes cuenta? 
+                    <a href="{% url 'login' %}" class="text-primary hover:underline">Inicia sesión</a>
+                </p>
+            </div>
+        </div>
+        
+        <!-- Back to landing -->
+        <div class="text-center mt-6">
+            <a href="http://localhost:4321" class="text-gray-400 hover:text-primary transition">
+                ← Volver al sitio principal
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

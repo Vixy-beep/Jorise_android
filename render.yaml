@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: jorise
+    env: python
+    region: oregon
+    plan: free
+    branch: main
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn jorise.wsgi:application"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: False
+      - key: ALLOWED_HOSTS
+        value: .onrender.com,jorise.vineksec.online
+      - key: DATABASE_URL
+        fromDatabase:
+          name: jorise-db
+          property: connectionString
+
+databases:
+  - name: jorise-db
+    plan: free
+    databaseName: jorise
+    user: jorise

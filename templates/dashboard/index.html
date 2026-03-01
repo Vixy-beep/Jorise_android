@@ -1,0 +1,255 @@
+{% extends 'dashboard/base_dashboard.html' %}
+
+{% block dashboard_content %}
+<!-- Global Stats Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+    <!-- Total Events -->
+    <div class="glass-card p-6">
+        <div class="flex items-center justify-between mb-4">
+            <div class="w-12 h-12 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                <span class="text-2xl">📊</span>
+            </div>
+            <span class="text-sm text-gray-400">Últimas 24h</span>
+        </div>
+        <h3 class="text-3xl font-bold mb-1">{{ stats.total_events|default:0 }}</h3>
+        <p class="text-sm text-gray-400">Eventos totales</p>
+    </div>
+    
+    <!-- Critical Alerts -->
+    <div class="glass-card p-6">
+        <div class="flex items-center justify-between mb-4">
+            <div class="w-12 h-12 rounded-lg bg-red-500/20 flex items-center justify-center">
+                <span class="text-2xl">🚨</span>
+            </div>
+            <span class="text-sm text-gray-400">Críticos</span>
+        </div>
+        <h3 class="text-3xl font-bold mb-1 text-red-400">{{ stats.critical_alerts|default:0 }}</h3>
+        <p class="text-sm text-gray-400">Alertas críticas</p>
+    </div>
+    
+    <!-- Blocked Attacks -->
+    <div class="glass-card p-6">
+        <div class="flex items-center justify-between mb-4">
+            <div class="w-12 h-12 rounded-lg bg-green-500/20 flex items-center justify-center">
+                <span class="text-2xl">🛡️</span>
+            </div>
+            <span class="text-sm text-gray-400">Bloqueados</span>
+        </div>
+        <h3 class="text-3xl font-bold mb-1 text-green-400">{{ stats.blocked_attacks|default:0 }}</h3>
+        <p class="text-sm text-gray-400">Ataques bloqueados</p>
+    </div>
+    
+    <!-- Threat Level -->
+    <div class="glass-card p-6">
+        <div class="flex items-center justify-between mb-4">
+            <div class="w-12 h-12 rounded-lg bg-yellow-500/20 flex items-center justify-center">
+                <span class="text-2xl">⚠️</span>
+            </div>
+            <span class="text-sm text-gray-400">Nivel global</span>
+        </div>
+        <h3 class="text-3xl font-bold mb-1 {% if stats.threat_level == 'critical' %}text-red-400{% elif stats.threat_level == 'high' %}text-orange-400{% elif stats.threat_level == 'medium' %}text-yellow-400{% else %}text-green-400{% endif %}">
+            {{ stats.threat_level|default:'low'|upper }}
+        </h3>
+        <p class="text-sm text-gray-400">Nivel de amenaza</p>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <!-- Events Timeline -->
+    <div class="glass-card p-6">
+        <h3 class="text-lg font-semibold mb-4">Eventos en el tiempo</h3>
+        <canvas id="eventsChart" height="200"></canvas>
+    </div>
+    
+    <!-- Attack Types Distribution -->
+    <div class="glass-card p-6">
+        <h3 class="text-lg font-semibold mb-4">Tipos de ataques</h3>
+        <canvas id="attacksChart" height="200"></canvas>
+    </div>
+</div>
+
+<!-- Module Status -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+    {% if user.profile.organization.subscription.siem_enabled %}
+    <div class="glass-card p-6">
+        <div class="flex items-center gap-4 mb-4">
+            <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
+                <span class="text-3xl">📈</span>
+            </div>
+            <div>
+                <h3 class="text-lg font-semibold">SIEM</h3>
+                <p class="text-sm text-gray-400">Log Analysis</p>
+            </div>
+        </div>
+        <div class="space-y-2">
+            <div class="flex justify-between text-sm">
+                <span>Logs analizados</span>
+                <span class="font-bold">{{ stats.siem.logs_analyzed|default:0 }}</span>
+            </div>
+            <div class="flex justify-between text-sm">
+                <span>Anomalías detectadas</span>
+                <span class="font-bold text-yellow-400">{{ stats.siem.anomalies|default:0 }}</span>
+            </div>
+        </div>
+        <a href="{% url 'siem_dashboard_view' %}" class="mt-4 block text-center py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all">
+            Ver detalles →
+        </a>
+    </div>
+    {% endif %}
+    
+    {% if user.profile.organization.subscription.edr_enabled %}
+    <div class="glass-card p-6">
+        <div class="flex items-center gap-4 mb-4">
+            <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-green-500 to-teal-500 flex items-center justify-center">
+                <span class="text-3xl">💻</span>
+            </div>
+            <div>
+                <h3 class="text-lg font-semibold">EDR</h3>
+                <p class="text-sm text-gray-400">Endpoint Protection</p>
+            </div>
+        </div>
+        <div class="space-y-2">
+            <div class="flex justify-between text-sm">
+                <span>Endpoints activos</span>
+                <span class="font-bold">{{ stats.edr.active_endpoints|default:0 }}</span>
+            </div>
+            <div class="flex justify-between text-sm">
+                <span>Amenazas detectadas</span>
+                <span class="font-bold text-red-400">{{ stats.edr.threats|default:0 }}</span>
+            </div>
+        </div>
+        <a href="{% url 'edr_dashboard_view' %}" class="mt-4 block text-center py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all">
+            Ver detalles →
+        </a>
+    </div>
+    {% endif %}
+    
+    {% if user.profile.organization.subscription.waf_enabled %}
+    <div class="glass-card p-6">
+        <div class="flex items-center gap-4 mb-4">
+            <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center">
+                <span class="text-3xl">🛡️</span>
+            </div>
+            <div>
+                <h3 class="text-lg font-semibold">WAF</h3>
+                <p class="text-sm text-gray-400">Web Protection</p>
+            </div>
+        </div>
+        <div class="space-y-2">
+            <div class="flex justify-between text-sm">
+                <span>Peticiones analizadas</span>
+                <span class="font-bold">{{ stats.waf.requests_analyzed|default:0 }}</span>
+            </div>
+            <div class="flex justify-between text-sm">
+                <span>Ataques bloqueados</span>
+                <span class="font-bold text-orange-400">{{ stats.waf.blocked|default:0 }}</span>
+            </div>
+        </div>
+        <a href="{% url 'waf_dashboard_view' %}" class="mt-4 block text-center py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all">
+            Ver detalles →
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Recent Incidents -->
+<div class="glass-card p-6">
+    <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold">Incidentes recientes</h3>
+        <a href="#" class="text-sm text-primary hover:text-secondary">Ver todos →</a>
+    </div>
+    
+    <div class="space-y-3">
+        {% for incident in recent_incidents %}
+        <div class="flex items-center gap-4 p-4 rounded-lg bg-white/5 hover:bg-white/10 transition-all">
+            <div class="w-10 h-10 rounded-lg {% if incident.severity == 'critical' %}bg-red-500/20{% elif incident.severity == 'high' %}bg-orange-500/20{% elif incident.severity == 'medium' %}bg-yellow-500/20{% else %}bg-blue-500/20{% endif %} flex items-center justify-center">
+                <span class="text-xl">{{ incident.icon }}</span>
+            </div>
+            <div class="flex-1">
+                <p class="font-medium">{{ incident.title }}</p>
+                <p class="text-sm text-gray-400">{{ incident.description }}</p>
+            </div>
+            <div class="text-right">
+                <p class="text-sm {% if incident.severity == 'critical' %}text-red-400{% elif incident.severity == 'high' %}text-orange-400{% elif incident.severity == 'medium' %}text-yellow-400{% else %}text-blue-400{% endif %} font-bold">
+                    {{ incident.severity|upper }}
+                </p>
+                <p class="text-xs text-gray-400">{{ incident.timestamp|timesince }}</p>
+            </div>
+        </div>
+        {% empty %}
+        <div class="text-center py-12 text-gray-400">
+            <span class="text-5xl mb-4 block">✅</span>
+            <p>No hay incidentes recientes</p>
+            <p class="text-sm">Tu sistema está seguro</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+// Events Timeline Chart
+const eventsCtx = document.getElementById('eventsChart').getContext('2d');
+new Chart(eventsCtx, {
+    type: 'line',
+    data: {
+        labels: {{ chart_labels|safe }},
+        datasets: [{
+            label: 'Eventos',
+            data: {{ chart_data|safe }},
+            borderColor: 'rgb(59, 130, 246)',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            fill: true,
+            tension: 0.4
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                ticks: { color: 'rgba(255, 255, 255, 0.7)' }
+            },
+            x: {
+                grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                ticks: { color: 'rgba(255, 255, 255, 0.7)' }
+            }
+        }
+    }
+});
+
+// Attack Types Chart
+const attacksCtx = document.getElementById('attacksChart').getContext('2d');
+new Chart(attacksCtx, {
+    type: 'doughnut',
+    data: {
+        labels: {{ attack_types_labels|safe }},
+        datasets: [{
+            data: {{ attack_types_data|safe }},
+            backgroundColor: [
+                'rgba(239, 68, 68, 0.8)',
+                'rgba(249, 115, 22, 0.8)',
+                'rgba(234, 179, 8, 0.8)',
+                'rgba(59, 130, 246, 0.8)',
+                'rgba(168, 85, 247, 0.8)'
+            ]
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'right',
+                labels: { color: 'rgba(255, 255, 255, 0.7)' }
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

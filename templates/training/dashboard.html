@@ -1,0 +1,246 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}Entrenamiento ML - Jorise{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+  <!-- Header -->
+  <div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+      <h2 class="fw-bold mb-0"><i class="bi bi-cpu me-2 text-primary"></i>Motor de Entrenamiento</h2>
+      <p class="text-muted mb-0">Entrena modelos de detección con archivos <strong>PCAP</strong> o <strong>CSV</strong></p>
+    </div>
+    {% if running_jobs %}
+    <span class="badge bg-warning text-dark fs-6">
+      <i class="bi bi-hourglass-split me-1"></i>{{ running_jobs }} job(s) en curso
+    </span>
+    {% endif %}
+  </div>
+
+  {% if messages %}
+  {% for msg in messages %}
+  <div class="alert alert-{{ msg.tags|default:'info' }} alert-dismissible fade show" role="alert">
+    {{ msg }} <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  <div class="row g-4">
+
+    <!-- ── Subida de dataset ── -->
+    <div class="col-lg-5">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-primary text-white">
+          <i class="bi bi-upload me-2"></i>Subir Dataset
+        </div>
+        <div class="card-body">
+          <form method="post" action="{% url 'training:upload_dataset' %}" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Archivo <span class="badge bg-secondary">.pcap</span> <span class="badge bg-secondary">.csv</span></label>
+              <input type="file" name="file" class="form-control" accept=".pcap,.csv" required>
+              <div class="form-text">Máximo 500 MB. Los PCAP se procesan como flujos de red; los CSV como datasets etiquetados.</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Nombre del dataset</label>
+              <input type="text" name="name" class="form-control" placeholder="Ej: Wednesday-WorkingHours">
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Descripción (opcional)</label>
+              <textarea name="description" class="form-control" rows="2" placeholder="Describe el origen del archivo…"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">
+              <i class="bi bi-cloud-upload me-1"></i>Subir Dataset
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Lanzar entrenamiento ── -->
+    <div class="col-lg-7">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-success text-white">
+          <i class="bi bi-play-circle me-2"></i>Lanzar Entrenamiento
+        </div>
+        <div class="card-body">
+          {% if datasets %}
+          <form method="post" action="{% url 'training:start_training' %}">
+            {% csrf_token %}
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Dataset</label>
+              <select name="dataset_id" class="form-select" required>
+                {% for ds in datasets %}
+                <option value="{{ ds.id }}">
+                  {{ ds.name }} ({{ ds.file_type|upper }} — {{ ds.status }})
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Nombre del modelo</label>
+              <input type="text" name="model_name" class="form-control" placeholder="Ej: Modelo Red Anomalías v1">
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Algoritmo <small class="text-muted">(PCAP usa siempre Isolation Forest)</small></label>
+              <select name="algorithm" class="form-select">
+                {% for value, label in algorithms %}
+                <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <button type="submit" class="btn btn-success w-100">
+              <i class="bi bi-cpu me-1"></i>Iniciar Entrenamiento
+            </button>
+          </form>
+          {% else %}
+          <div class="text-center text-muted py-4">
+            <i class="bi bi-inbox display-4"></i>
+            <p class="mt-2">Sube un dataset primero para poder entrenar.</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Jobs recientes ── -->
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-header">
+          <i class="bi bi-list-task me-2"></i>Jobs de Entrenamiento Recientes
+        </div>
+        <div class="card-body p-0">
+          {% if jobs %}
+          <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>Modelo</th>
+                  <th>Dataset</th>
+                  <th>Algoritmo</th>
+                  <th>Estado</th>
+                  <th>Accuracy</th>
+                  <th>F1</th>
+                  <th>Fecha</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for job in jobs %}
+                <tr id="job-{{ job.pk }}">
+                  <td class="fw-semibold">{{ job.model_name }}</td>
+                  <td>{{ job.dataset.name }}</td>
+                  <td><span class="badge bg-secondary">{{ job.algorithm }}</span></td>
+                  <td>
+                    {% if job.status == 'done' %}
+                      <span class="badge bg-success">Completado</span>
+                    {% elif job.status == 'running' %}
+                      <span class="badge bg-warning text-dark job-status-badge" data-job-id="{{ job.pk }}">
+                        <span class="spinner-border spinner-border-sm me-1"></span>Entrenando…
+                      </span>
+                    {% elif job.status == 'pending' %}
+                      <span class="badge bg-info text-dark job-status-badge" data-job-id="{{ job.pk }}">Pendiente</span>
+                    {% elif job.status == 'failed' %}
+                      <span class="badge bg-danger" title="{{ job.error_msg }}">Fallido</span>
+                    {% endif %}
+                  </td>
+                  <td>{% if job.accuracy %}{{ job.accuracy|floatformat:3 }}{% else %}—{% endif %}</td>
+                  <td>{% if job.f1_score %}{{ job.f1_score|floatformat:3 }}{% else %}—{% endif %}</td>
+                  <td>{{ job.created_at|date:"d/m/Y H:i" }}</td>
+                  <td>
+                    {% if job.status == 'done' %}
+                    <a href="{% url 'training:model_detail' job.trained_model.pk %}" class="btn btn-sm btn-outline-primary">
+                      Ver modelo
+                    </a>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="text-center text-muted py-4">
+            <i class="bi bi-inbox display-4"></i>
+            <p class="mt-2">Todavía no hay jobs de entrenamiento.</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Modelos entrenados ── -->
+    {% if trained_models %}
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-header">
+          <i class="bi bi-stars me-2 text-warning"></i>Modelos Entrenados
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>Nombre</th>
+                  <th>Módulo</th>
+                  <th>Features</th>
+                  <th>Predicciones</th>
+                  <th>Activo</th>
+                  <th>Creado</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for tm in trained_models %}
+                <tr>
+                  <td class="fw-semibold">{{ tm.name }}</td>
+                  <td><span class="badge bg-info text-dark">{{ tm.module }}</span></td>
+                  <td>{{ tm.features_json|length }}</td>
+                  <td>{{ tm.predictions }}</td>
+                  <td>{% if tm.is_active %}<span class="badge bg-success">Sí</span>{% else %}<span class="badge bg-secondary">No</span>{% endif %}</td>
+                  <td>{{ tm.created_at|date:"d/m/Y H:i" }}</td>
+                  <td>
+                    <a href="{% url 'training:model_detail' tm.pk %}" class="btn btn-sm btn-outline-secondary">
+                      Detalles
+                    </a>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+  </div><!-- /row -->
+</div><!-- /container -->
+
+<!-- Polling para jobs en curso -->
+<script>
+(function () {
+  const badges = document.querySelectorAll('.job-status-badge');
+  if (!badges.length) return;
+
+  function pollJob(badge) {
+    const jobId = badge.dataset.jobId;
+    fetch(`/training/job/${jobId}/status/`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.status === 'done') {
+          location.reload();
+        } else if (data.status === 'failed') {
+          badge.className = 'badge bg-danger';
+          badge.innerHTML = 'Fallido';
+        } else {
+          setTimeout(() => pollJob(badge), 4000);
+        }
+      })
+      .catch(() => setTimeout(() => pollJob(badge), 8000));
+  }
+
+  badges.forEach(b => setTimeout(() => pollJob(b), 3000));
+})();
+</script>
+{% endblock %}
