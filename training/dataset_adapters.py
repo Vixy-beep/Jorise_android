@@ -271,40 +271,79 @@ class UNSWB15Adapter:
     ]
 
     def load(self, csv_path: str, n: int = 15000) -> tuple[pd.DataFrame, pd.Series]:
-        """Load UNSW-NB15 CSV (with or without header)."""
-        # Try with header first
-        df = pd.read_csv(csv_path, low_memory=False)
-        if df.columns[0].lower() in ('srcip', 'id', '0', 'no.'):
-            df.columns = df.columns.str.lower().str.strip()
-        else:
-            # No header — use known column list
-            df = pd.read_csv(csv_path, header=None, low_memory=False)
+        """Load UNSW-NB15 CSV (with or without header).
+
+        Handles both file types:
+        - Raw data files (UNSW-NB15_1.csv to _4.csv): 49 columns, no header
+        - Structured sets (UNSW_NB15_training-set.csv, testing-set.csv): 45 cols, UTF-8-BOM header
+
+        Key column name differences between file types:
+            training-set    raw
+            sinpkt          sintpkt
+            dinpkt          dintpkt
+            smean           smeansz
+            dmean           dmeansz
+        """
+        # Try utf-8-sig first (strips UTF-8 BOM cleanly), then latin1 for raw binary files
+        df = None
+        for enc in ('utf-8-sig', 'latin1'):
+            try:
+                df = pd.read_csv(csv_path, low_memory=False, encoding=enc)
+                break
+            except (UnicodeDecodeError, Exception):
+                continue
+        if df is None:
+            raise OSError(f"Could not read {csv_path} with utf-8-sig or latin1 encoding")
+
+        # Normalize: strip whitespace + lowercase (handles any residual BOM chars)
+        df.columns = df.columns.str.strip().str.lower()
+
+        # Detect if we actually have a real header (raw files have none)
+        first_col = df.columns[0] if len(df.columns) > 0 else ''
+        has_header = first_col in ('srcip', 'id', 'dur', 'no.')
+
+        if not has_header:
+            # No header — raw 49-column files (UNSW-NB15_1.csv to _4.csv)
+            for enc in ('latin1', 'utf-8-sig'):
+                try:
+                    df = pd.read_csv(csv_path, header=None, low_memory=False, encoding=enc)
+                    break
+                except (UnicodeDecodeError, Exception):
+                    continue
             if len(df.columns) == len(self.COLUMNS):
                 df.columns = self.COLUMNS
             else:
-                # Partial — use what we have
                 df.columns = self.COLUMNS[:len(df.columns)]
 
-        # Label is in 'attack_cat' (category name) or 'label' (0/1)
+        # Label resolution (attack_cat has class name, label is 0/1)
         if 'attack_cat' in df.columns:
             y = df['attack_cat'].fillna('Normal').apply(normalize_label)
         elif 'label' in df.columns:
-            y = df['label'].apply(lambda v: 'BENIGN' if str(v).strip() in ('0','normal','Normal') else 'Other')
+            y = df['label'].apply(lambda v: 'BENIGN' if str(v).strip() in ('0', 'normal', 'Normal') else 'Other')
         else:
             raise ValueError("No label column found in UNSW-NB15 CSV")
 
-        dur  = pd.to_numeric(df.get('dur', pd.Series(0, index=df.index)), errors='coerce').fillna(0)
-        sp   = pd.to_numeric(df.get('spkts', pd.Series(0, index=df.index)), errors='coerce').fillna(0)
-        dp   = pd.to_numeric(df.get('dpkts', pd.Series(0, index=df.index)), errors='coerce').fillna(0)
-        sb   = pd.to_numeric(df.get('sbytes', pd.Series(0, index=df.index)), errors='coerce').fillna(0)
-        db_  = pd.to_numeric(df.get('dbytes', pd.Series(0, index=df.index)), errors='coerce').fillna(0)
-        sm   = pd.to_numeric(df.get('smeansz', pd.Series(0, index=df.index)), errors='coerce').fillna(0)
-        dm   = pd.to_numeric(df.get('dmeansz', pd.Series(0, index=df.index)), errors='coerce').fillna(0)
-        sttl = pd.to_numeric(df.get('sttl', pd.Series(64, index=df.index)), errors='coerce').fillna(64)
-        sint = pd.to_numeric(df.get('sintpkt', pd.Series(0, index=df.index)), errors='coerce').fillna(0)
-        dint = pd.to_numeric(df.get('dintpkt', pd.Series(0, index=df.index)), errors='coerce').fillna(0)
-        sjit = pd.to_numeric(df.get('sjit', pd.Series(0, index=df.index)), errors='coerce').fillna(0)
-        djit = pd.to_numeric(df.get('djit', pd.Series(0, index=df.index)), errors='coerce').fillna(0)
+        def _col(df: pd.DataFrame, *names: str, default: float = 0.0) -> pd.Series:
+            """Return first found column as numeric, fallback to constant series."""
+            for name in names:
+                if name in df.columns:
+                    return pd.to_numeric(df[name], errors='coerce').fillna(default)
+            return pd.Series(default, index=df.index)
+
+        dur  = _col(df, 'dur')
+        sp   = _col(df, 'spkts')
+        dp   = _col(df, 'dpkts')
+        sb   = _col(df, 'sbytes')
+        db_  = _col(df, 'dbytes')
+        # training-set → 'smean'/'dmean', raw files → 'smeansz'/'dmeansz'
+        sm   = _col(df, 'smean', 'smeansz')
+        dm   = _col(df, 'dmean', 'dmeansz')
+        sttl = _col(df, 'sttl', default=64.0)
+        # training-set → 'sinpkt'/'dinpkt', raw files → 'sintpkt'/'dintpkt'
+        sint = _col(df, 'sinpkt', 'sintpkt')
+        dint = _col(df, 'dinpkt', 'dintpkt')
+        sjit = _col(df, 'sjit')
+        djit = _col(df, 'djit')
 
         total_pkts  = sp + dp + 1e-9
         total_bytes = sb + db_ + 1e-9
