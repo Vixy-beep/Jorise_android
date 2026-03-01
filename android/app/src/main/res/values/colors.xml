@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Guardian brand colors -->
+    <color name="guardian_primary">#1A73E8</color>
+    <color name="guardian_primary_dark">#1557B0</color>
+    <color name="guardian_background">#F8F9FA</color>
+    <color name="guardian_surface">#FFFFFF</color>
+    <color name="guardian_on_surface">#202124</color>
+    <color name="guardian_on_surface_variant">#5F6368</color>
+
+    <!-- Risk levels -->
+    <color name="risk_low">#34A853</color>
+    <color name="risk_low_container">#E6F4EA</color>
+    <color name="risk_medium">#F9AB00</color>
+    <color name="risk_medium_container">#FEF7E0</color>
+    <color name="risk_high">#EA4335</color>
+    <color name="risk_high_container">#FCE8E6</color>
+    <color name="risk_critical">#B31412</color>
+    <color name="risk_critical_container">#F5C6C5</color>
+</resources>

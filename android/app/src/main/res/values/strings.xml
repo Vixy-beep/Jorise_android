@@ -1,0 +1,34 @@
+<resources>
+    <string name="app_name">Guardian</string>
+    <string name="app_tagline">Tu asistente de seguridad</string>
+
+    <!-- Dashboard -->
+    <string name="risk_level_low">Riesgo Bajo</string>
+    <string name="risk_level_medium">Riesgo Medio</string>
+    <string name="risk_level_high">Riesgo Alto</string>
+    <string name="risk_level_critical">Riesgo Crítico</string>
+
+    <!-- Acciones recomendadas -->
+    <string name="action_low">Todo parece normal. Podés continuar.</string>
+    <string name="action_medium">Hay algo que no parece normal. Revisá antes de continuar.</string>
+    <string name="action_high">Detectamos algo sospechoso. Confirmá tu identidad para seguir.</string>
+    <string name="action_critical">Bloqueamos la acción por tu seguridad. Revisá tu dispositivo.</string>
+
+    <!-- Botones -->
+    <string name="btn_check_now">Verificar ahora</string>
+    <string name="btn_continue">Continuar</string>
+    <string name="btn_cancel">Cancelar</string>
+    <string name="btn_learn_more">¿Por qué veo esto?</string>
+
+    <!-- Señales -->
+    <string name="signal_wifi_unknown">Red WiFi desconocida</string>
+    <string name="signal_dns">DNS no estándar detectado</string>
+    <string name="signal_tls">Certificado de seguridad inválido</string>
+    <string name="signal_overlay">Ventana sospechosa detectada</string>
+    <string name="signal_permission">Permiso sensible concedido recientemente</string>
+    <string name="signal_hour">Acción fuera de tu horario habitual</string>
+
+    <!-- Accesibilidad -->
+    <string name="accessibility_service_label">Guardian — Protección de pantalla</string>
+    <string name="accessibility_service_description">Guardian monitorea ventanas emergentes sospechosas para protegerte de estafas. No lee tu contenido privado.</string>
+</resources>

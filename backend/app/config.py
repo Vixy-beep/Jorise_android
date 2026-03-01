@@ -9,8 +9,7 @@ class Settings(BaseSettings):
     CORS_ORIGINS: List[str] = ["*"]
     SECRET_KEY: str = "change-me-in-production"
 
-    class Config:
-        env_file = ".env"
+    model_config = {"env_file": ".env"}
 
 
 settings = Settings()

@@ -1,16 +1,22 @@
 # Python
 __pycache__/
+**/__pycache__/
 *.py[cod]
 *.pyo
+*.pyc
 .env
 .venv/
 venv/
+env/
 dist/
 build/
 *.egg-info/
 .pytest_cache/
 .coverage
 htmlcov/
+# Local DB (dev only)
+*.db
+*.sqlite3
 
 # Android / Kotlin
 .gradle/
