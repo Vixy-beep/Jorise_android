@@ -1,0 +1,43 @@
+# Jorise Lab — CICFlowMeter Container
+# =====================================
+# Runs CICFlowMeter (PCAP → CSV feature extractor) in Docker.
+# No Java installation required on the host.
+#
+# One-time setup:
+#   docker compose -f docker-compose.lab.yml build
+#
+# Then use setup_lab.py pcap2csv  (it calls docker run automatically)
+#
+# Or to run manually:
+#   docker compose -f docker-compose.lab.yml run --rm cicflowmeter \
+#       cfm /pcaps/my_capture.pcap /output
+
+version: "3.9"
+
+services:
+
+  # ── CICFlowMeter ─────────────────────────────────────────────────────────
+  cicflowmeter:
+    build:
+      context: ./docker/cicflowmeter
+      dockerfile: Dockerfile
+    image: jorise/cicflowmeter:latest
+    volumes:
+      # Mount your PCAP files (read-only) and output dir (read-write)
+      - ./media/training/lab_pcaps:/pcaps:ro
+      - ./media/training/datasets/jorise_lab:/output
+    entrypoint: ["cfm"]
+    # Usage: docker compose run --rm cicflowmeter /pcaps/FILE.pcap /output
+
+  # ── Optional: Real-time packet capture relay ──────────────────────────────
+  # Uncomment if you want a dedicated tcpdump container that writes PCAPs
+  # for the cicflowmeter container to pick up.
+  #
+  # tcpdump:
+  #   image: nicolaka/netshoot
+  #   network_mode: host
+  #   cap_add:
+  #     - NET_ADMIN
+  #   volumes:
+  #     - ./media/training/lab_pcaps:/pcaps
+  #   command: tcpdump -i eth0 -w /pcaps/live_capture.pcap
