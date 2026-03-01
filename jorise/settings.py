@@ -92,7 +92,6 @@ WSGI_APPLICATION = 'jorise.wsgi.application'
 database_url = config('DATABASE_URL', default='')
 
 # Force SQLite for now (PostgreSQL connection issues on Railway)
-# TODO: Fix PostgreSQL connection and switch back
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
