@@ -17,6 +17,8 @@ id -u jorise   &>/dev/null || useradd -m -s /bin/bash jorise
 id -u guardian &>/dev/null || useradd -m -s /bin/bash guardian
 mkdir -p /home/jorise   && chown jorise:jorise     /home/jorise
 mkdir -p /home/guardian && chown guardian:guardian /home/guardian
+git config --global --add safe.directory /home/jorise/jorise
+git config --global --add safe.directory /home/guardian/guardian
 
 echo "[3/8] Jorise (main)..."
 if [ -d "$JORISE_DIR/.git" ]; then
